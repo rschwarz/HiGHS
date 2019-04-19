@@ -27,7 +27,7 @@
     this->setup(length);
   }
 
-  HVector::HVector(vector<double> vec, int length) {
+  HVector::HVector(vector<double>& vec, int length) {
     this->setup(length);
     int nz = 0;
     for(int i=0; i < length; i++) {

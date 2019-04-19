@@ -35,7 +35,7 @@ class HVector {
 
   HVector(int length);
 
-  HVector(vector<double> vec, int length);
+  HVector(vector<double>& vec, int length);
 
   /**
    * @brief Clear the vector
