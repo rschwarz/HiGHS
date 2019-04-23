@@ -7,6 +7,8 @@
 
 #include "io/HighsIO.h"
 #include "presolve/ExactSubproblem.h"
+#include "lp_data/HConst.h"
+#include "lp_data/HighsLpUtils.h"
 
 constexpr double kExitTolerance = 0.00000001;
 
@@ -16,6 +18,30 @@ bool isEqualityProblem(const HighsLp& lp) {
       return false;
 
   return true;
+}
+
+std::vector<double> getAtb(const HighsLp& lp) {
+  assert(lp.rowUpper_ == lp.rowLower_);
+  std::vector<double> atb(lp.numCol_, 0);
+  for (int col = 0; col < lp.numCol_; col++) {
+    for (int k = lp.Astart_[col]; k < lp.Astart_[col+1]; k++) {
+      const int row = lp.Aindex_[k];
+      atb.at(col) += lp.Avalue_[k] * lp.rowUpper_[row];
+    }
+  }
+  return atb;
+}
+
+std::vector<double> getAtLambda(const HighsLp& lp,
+                                const std::vector<double> lambda) {
+  std::vector<double> atl(lp.numCol_);
+  for (int col = 0; col < lp.numCol_; col++) {
+    for (int k = lp.Astart_[col]; k < lp.Astart_[col+1]; k++) {
+      const int row = lp.Aindex_[k];
+      atl.at(col) += lp.Avalue_[k] * lambda[row];
+    }
+  }
+  return atl;
 }
 
 class Quadratic
@@ -116,11 +142,22 @@ void Quadratic::minimize_exact_penalty(const double mu) {
 
 void Quadratic::minimize_by_component(const double mu,
                                       const std::vector<double>& lambda) {
+  HighsPrintMessageLevel ML_DESC = ML_DETAILED;
   int iterations = 100;
+ 
+  HighsPrintMessage(ML_DESC,
+                    "Values at start: %3.2g, %3.4g, \n",
+                    objective_,
+                    residual_norm_2_);
 
   for (int iteration = 0; iteration < iterations; iteration++) {
     for (int col = 0; col < lp_.numCol_; col++) {
-      // todo: determine whether to minimize for col.
+       // determine whether to minimize for col.
+      // if empty skip. 
+      if (lp_.Astart_[col] == lp_.Astart_[col+1])
+        continue;
+      // todo: add slope calculation.
+
       // Minimize quadratic for column col.
 
       // Formulas for a and b when minimizing for x_j
@@ -173,18 +210,24 @@ void Quadratic::minimize_by_component(const double mu,
       }
     }
 
-    // Code below commented out because updating after each component
-    // minimization.
-    // update();
-
+    // Code below gets the residual norms updated.
+    update();
     // updateResidual();
+
+    HighsPrintMessage(ML_DESC,
+                      "Values at approximate iteration %d: %3.2g, %3.4g, \n",
+                      iteration,
+                      objective_,
+                      residual_norm_2_);
+
     // todo: check for early exit
   }
   update();
 }
 
 double chooseStartingMu(const HighsLp& lp) {
-  return 0.001;
+ // return 0.001;
+  return 10;
 }
 
 
@@ -230,6 +273,11 @@ HighsStatus runFeasibility(const HighsLp& lp,
                            const MinimizationType type) {
   if (!isEqualityProblem(lp))
     return HighsStatus::NotImplemented;
+  
+  if (lp.sense_ != OBJSENSE_MINIMIZE) {
+    HighsPrintMessage(ML_ALWAYS,
+                      "Error: FindFeasibility does not support maximization problems.\n");
+  }
 
   // Initialize x_0 ≥ 0, μ_1, λ_1 = 0.
   double mu;
@@ -259,8 +307,9 @@ HighsStatus runFeasibility(const HighsLp& lp,
   }
 
   // Minimize approximately for K iterations.
-  int K = 50;
-  for (int iteration = 1; iteration < K + 1; iteration++) {
+  int K = 30;
+  int iteration = 0;
+  for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
     if (type == MinimizationType::kComponentWise)
       quadratic.minimize_by_component(mu, lambda);
@@ -295,6 +344,14 @@ HighsStatus runFeasibility(const HighsLp& lp,
   quadratic.getSolution(solution);
   HighsPrintMessage(ML_ALWAYS,
                     "\nSolution set at the end of feasibility search.\n");
-
+  
+  // Using ss again instead of ss_str messes up HighsIO.
+  std::stringstream ss_str;
+  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", quadratic_objective, " << std::setw(3)
+      << std::fixed << std::setprecision(2)
+      << quadratic.getObjective() << ", c'x, " << calculateObjective(lp, solution) <<" ,residual, " << std::setw(5)
+      << std::scientific << residual_norm_2 << "," << std::endl;
+  HighsPrintMessage(ML_ALWAYS, ss_str.str().c_str());
+ 
   return HighsStatus::OK;
 }
