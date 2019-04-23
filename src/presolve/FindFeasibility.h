@@ -1,8 +1,8 @@
 #ifndef PRESOVLE_FINDFEASIBILITY_H_
 #define PRESOVLE_FINDFEASIBILITY_H_
 
-#include "lp_data/HighsStatus.h"
 #include "lp_data/HighsLp.h"
+#include "lp_data/HighsStatus.h"
 
 enum class MinimizationType {
   kComponentWise,

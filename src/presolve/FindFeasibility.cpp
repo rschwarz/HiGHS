@@ -8,6 +8,8 @@
 #include "io/HighsIO.h"
 #include "lp_data/HConst.h"
 #include "presolve/ExactSubproblem.h"
+#include "lp_data/HConst.h"
+#include "lp_data/HighsLpUtils.h"
 
 constexpr double kExitTolerance = 0.00000001;
 
@@ -165,6 +167,11 @@ void Quadratic::minimize_by_component(const double mu,
                                       const std::vector<double>& lambda) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
   int iterations = 100;
+ 
+  HighsPrintMessage(ML_DESC,
+                    "Values at start: %3.2g, %3.4g, \n",
+                    objective_,
+                    residual_norm_2_);
 
   HighsPrintMessage(ML_DESC,
                     "Values at start: %3.2g, %3.4g, \n",
@@ -295,6 +302,11 @@ HighsStatus runFeasibility(const HighsLp& lp,
   if (!isEqualityProblem(lp))
     return HighsStatus::NotImplemented;
   
+  if (lp.sense_ != OBJSENSE_MINIMIZE) {
+    HighsPrintMessage(ML_ALWAYS,
+                      "Error: FindFeasibility does not support maximization problems.\n");
+  }
+
   // Initialize x_0 ≥ 0, μ_1, λ_1 = 0.
   double mu;
   std::vector<double> lambda;
@@ -323,7 +335,7 @@ HighsStatus runFeasibility(const HighsLp& lp,
   }
 
   // Minimize approximately for K iterations.
-  int K = 50;
+  int K = 200;
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
@@ -360,12 +372,14 @@ HighsStatus runFeasibility(const HighsLp& lp,
   quadratic.getSolution(solution);
   HighsPrintMessage(ML_ALWAYS,
                     "\nSolution set at the end of feasibility search.\n");
-  ss.clear();
-  ss << "Model, " << lp.model_name_ << ", iter, " << iteration << ", objective, " << std::setw(3)
+  
+  // Using ss again instead of ss_str messes up HighsIO.
+  std::stringstream ss_str;
+  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", quadratic_objective, " << std::setw(3)
       << std::fixed << std::setprecision(2)
-      << quadratic.getObjective() << " ,residual, " << std::setw(5)
-      << std::scientific << residual_norm_2 << std::endl;
-  HighsPrintMessage(ML_ALWAYS, ss.str().c_str());
-
+      << quadratic.getObjective() << ", c'x, " << calculateObjective(lp, solution) <<" ,residual, " << std::setw(5)
+      << std::scientific << residual_norm_2 << "," << std::endl;
+  HighsPrintMessage(ML_ALWAYS, ss_str.str().c_str());
+ 
   return HighsStatus::OK;
 }

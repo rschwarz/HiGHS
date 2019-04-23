@@ -1691,6 +1691,15 @@ HighsStatus calculateRowValues(const HighsLp& lp, HighsSolution& solution) {
   return HighsStatus::OK;
 }
 
+double calculateObjective(const HighsLp& lp, HighsSolution& solution) {
+  assert(isSolutionConsistent(lp, solution));
+  double sum = 0;
+  for (int col = 0; col < lp.numCol_; col++)
+    sum += lp.colCost_[col] * solution.col_value[col];
+
+  return sum;
+}
+
 HighsStatus assess_interval_set_mask(const int ix_dim, 
 				     const bool interval, const int from_ix, const int to_ix,
 				     const bool set, int num_set_entries, const int* ix_set,
@@ -2058,9 +2067,14 @@ HighsLp dualizeEqualityProblem(const HighsLp& lp) {
     }
   }
 
-  dual.offset_ = -lp.offset_;
-  dual.sense_ = OBJSENSE_MAXIMIZE;
+  dual.sense_ = OBJSENSE_MINIMIZE;
+  for (int col = 0; col < dual.numCol_; col++) {
+    dual.colCost_[col] = -dual.colCost_[col];
+  }
+
   dual.model_name_ = lp.model_name_ + "_dualized";
+
+  HighsPrintMessage(ML_ALWAYS, "Dualized equality LP.\n");
 
   HighsPrintMessage(ML_ALWAYS, "Dualized equality LP.\n");
   return dual;

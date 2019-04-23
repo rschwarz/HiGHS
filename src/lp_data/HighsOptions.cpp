@@ -211,6 +211,7 @@ OptionStatus setFindFeasibilityValue(HighsOptions& options, const std::string& v
   return OptionStatus::OK;
 }
 
+
 OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options, const std::string& value) {
   if (value == "approx_component")
     options.feasibility_strategy = FeasibilityStrategy::kApproxComponentWise;
@@ -220,8 +221,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options, const std::s
     options.feasibility_strategy = FeasibilityStrategy::kDirectSolve;
   else {
     HighsLogMessage(HighsMessageType::ERROR,
-		    "feasibility component-wise value \"%s\" is not permitted: legal values are \"%s\" and \"%s\"\n",
-		    value.c_str(), "on", "off");
+                   "feasibility component-wise value \"%s\" is not permitted: legal values are \"%s\" and \"%s\"\n",
+                   value.c_str(), "on", "off");
     return OptionStatus::ILLEGAL_VALUE;
   }
   return OptionStatus::OK;
@@ -234,8 +235,8 @@ OptionStatus setFindFeasibilityDualizeValue(HighsOptions& options, const std::st
     options.feasibility_strategy_dualize = false;
   else {
     HighsLogMessage(HighsMessageType::ERROR,
-		    "feasibility dualize value \"%s\" is not permitted: legal values are \"%s\" and \"%s\"\n",
-		    value.c_str(), "on", "off");
+                   "feasibility dualize value \"%s\" is not permitted: legal values are \"%s\" and \"%s\"\n",
+                   value.c_str(), "on", "off");
     return OptionStatus::ILLEGAL_VALUE;
   }
   return OptionStatus::OK;

@@ -151,6 +151,7 @@ struct HighsOptions
   bool find_feasibility = false;
   FeasibilityStrategy feasibility_strategy = FeasibilityStrategy::kApproxComponentWise;
   bool feasibility_strategy_dualize = false;
+
   bool mip = false;
 };
 

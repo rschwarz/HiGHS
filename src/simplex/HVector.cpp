@@ -27,12 +27,12 @@
     this->setup(length);
   }
 
-  HVector::HVector(vector<double> vec, int length) {
+  HVector::HVector(vector<double>& vec, int length) {
     this->setup(length);
     int nz = 0;
     for(int i=0; i < length; i++) {
       this->array[i] = vec[i];
-      if (abs(vec[i]) > HIGHS_CONST_TINY) {
+      if (fabs(vec[i]) > HIGHS_CONST_TINY) {
         this->index[nz] = i;
         nz++;
       }

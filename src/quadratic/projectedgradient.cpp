@@ -121,7 +121,7 @@ void ProjectedGradient::computeProjectedGradient(HVector& gradient,
                                                  HVector& projectedGradient) {
   // compute pj
   int nz = 0;
-  for (int i = 0; i < numCol; i++) {
+  for (int i = 0; i < tbar.size() ; i++) {
     if (t[bp] < tbar[i]) {
       if (fabs(gradient.array[i]) > HIGHS_CONST_TINY) {
         projectedGradient.array[i] = -gradient.array[i];
@@ -181,7 +181,7 @@ void ProjectedGradient::solveLpPenalty(HighsLp& lp, double mu, HVector& x) {
     this->computeBreakpoints(gradient, x, u, l, t, tbar);
 
     // TODO: maybe to t.size()-1?
-    for (int bp = 0; bp < t.size(); bp++) {
+    for (int bp = 0; bp < t.size()-1; bp++) {
       HVector p;
       p.setup(lp.numCol_);
 
@@ -277,6 +277,7 @@ void ProjectedGradient::solveLpPenalty(HighsLp& lp, double mu, HVector& x) {
       double objChange = fabs(prevObjValue - newObjValue);
       if (objChange < TOLERANCE_CG_OBJECTIVE_CHANGE) {
         HighsPrintMessage(ML_MINIMAL, "CG iter %d: objective change too small: %lf\n", cgIteration, objChange);
+        iteration += 10;
         break;
       }
       prevObjValue = newObjValue;
