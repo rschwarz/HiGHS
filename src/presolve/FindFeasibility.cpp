@@ -139,11 +139,13 @@ void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<do
   HighsLp lp = lp_;
   // Modify cost. See notebook ."lambda"
   // projected_gradient_c = c - 1/mu*(A'b) - A'\lambda
+  // First part taken into consideration in projected gradient.
+
   std::vector<double> atb = getAtb(lp);
   std::vector<double> atlambda = getAtLambda(lp, lambda);
   for (int col = 0; col < lp.colCost_.size(); col++)
-    lp.colCost_[col] -= (atb[col]) / mu - atlambda[col];
-
+    lp.colCost_[col] -= atlambda[col];
+ 
   solve_exact(lp, mu_penalty, col_value_);
 
   update();
@@ -154,9 +156,7 @@ void Quadratic::minimize_exact_penalty(const double mu) {
   HighsLp lp = lp_;
   // Modify cost. See notebook ."no lambda"
   // projected_gradient_c = c - 1/mu*(A'b)
-  std::vector<double> atb = getAtb(lp);
-  for (int col = 0; col < lp.colCost_.size(); col++)
-    lp.colCost_[col] -= (atb[col]) / mu;
+  // First part taken into consideration in projected gradient.
 
   solve_exact(lp, mu_penalty, col_value_);
 
@@ -342,6 +342,7 @@ HighsStatus runFeasibility(const HighsLp& lp,
     if (type == MinimizationType::kComponentWise)
       quadratic.minimize_by_component(mu, lambda);
     else if (type == MinimizationType::kExact)
+      //quadratic.minimize_exact_penalty(mu);
       quadratic.minimize_exact_with_lambda(mu, lambda);
 
     // Report outcome.
