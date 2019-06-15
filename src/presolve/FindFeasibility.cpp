@@ -45,6 +45,11 @@ std::vector<double> getAtLambda(const HighsLp& lp,
   return atl;
 }
 
+enum class ResidualFunctionType {
+  kLinearised,
+  kPiecewise
+};
+
 class Quadratic
 {
  public:
@@ -70,8 +75,13 @@ class Quadratic
   }
 
   void minimize_by_component(const double mu,
-                             const std::vector<double>& lambda);
+                             const std::vector<double>& lambda,
+                             const ResidualFunctionType type);
 
+  void minimize_component_quadratic_linearisation(const int col,const double mu,
+                                      const std::vector<double>& lambda);
+  void minimize_component_quadratic_piecewise(const int col,const double mu,
+                                      const std::vector<double>& lambda);
   void minimize_exact_penalty(const double mu);
   void minimize_exact_with_lambda(const double mu,
                                   const std::vector<double>& lambda);
@@ -88,15 +98,17 @@ class Quadratic
 
   void updateObjective();
   void updateRowValue();
-  void updateResidual();
+  void updateResidual(ResidualFunctionType quadratic_type =
+                          ResidualFunctionType::kLinearised);
 
-  void update();
+  void update(ResidualFunctionType quadratic_type =
+                  ResidualFunctionType::kLinearised);
 };
 
-void Quadratic::update() {
+void Quadratic::update(ResidualFunctionType quadratic_type ) {
     updateObjective();
     updateRowValue();
-    updateResidual();
+    updateResidual(quadratic_type);
 }
 
 void Quadratic::updateRowValue() {
@@ -111,21 +123,35 @@ void Quadratic::updateRowValue() {
   }
 }
 
-void Quadratic::updateResidual() {
+void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
   residual_.clear();
   residual_.assign(lp_.numRow_, 0);
   residual_norm_1_ = 0;
   residual_norm_2_ = 0;
 
-  for (int row = 0; row  < lp_.numRow_; row++) {
-    // for the moment assuming rowLower == rowUpper
-    residual_[row] = lp_.rowUpper_[row] - row_value_[row];
+  if (quadratic_type == ResidualFunctionType::kLinearised) {
+    for (int row = 0; row  < lp_.numRow_; row++) {
+      // for the moment assuming rowLower == rowUpper
+      residual_[row] = lp_.rowUpper_[row] - row_value_[row];
 
-    residual_norm_1_ += std::fabs(residual_[row]);
-    residual_norm_2_ += residual_[row] * residual_[row];
-  }
+      residual_norm_1_ += std::fabs(residual_[row]);
+      residual_norm_2_ += residual_[row] * residual_[row];
+    }
 
-  residual_norm_2_ = std::sqrt(residual_norm_2_);
+  } else if (quadratic_type == ResidualFunctionType::kPiecewise)
+    for (int row = 0; row  < lp_.numRow_; row++) {
+      double value = 0;
+      if (row_value_[row] <= lp_.rowLower_[row])
+        value = lp_.rowLower_[row] - row_value_[row];
+      else if (row_value_[row] >= lp_.rowUpper_[row])
+        value = row_value_[row] - lp_.rowUpper_[row];
+
+      residual_[row] = value;
+      residual_norm_1_ += std::fabs(residual_[row]);
+      residual_norm_2_ += residual_[row] * residual_[row];
+    }
+
+    residual_norm_2_ = std::sqrt(residual_norm_2_);
 }
 
 void Quadratic::updateObjective() {
@@ -163,84 +189,117 @@ void Quadratic::minimize_exact_penalty(const double mu) {
   update();
 }
 
-void Quadratic::minimize_by_component(const double mu,
-                                      const std::vector<double>& lambda) {
+void Quadratic::minimize_component_quadratic_linearisation(
+    const int col, const double mu, const std::vector<double> &lambda) {
+
+  // Minimize quadratic for column col.
+
+  // Formulas for a and b when minimizing for x_j
+  // a = (1/(2*mu)) * sum_i a_ij^2
+  // b = -(1/(2*mu)) sum_i (2 * a_ij * (sum_{k!=j} a_ik * x_k - b_i)) + c_j \
+      //     + sum_i a_ij * lambda_i
+  // b / 2 = -(1/(2*mu)) sum_i (2 * a_ij
+  double a = 0.0;
+  double b = 0.0;
+
+  for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
+    int row = lp_.Aindex_[k];
+    a += lp_.Avalue_[k] * lp_.Avalue_[k];
+    // matlab but with b = b / 2
+    double bracket = -residual_[row] - lp_.Avalue_[k] * col_value_[col];
+    bracket += lambda[row];
+    // clp minimizing for delta_x
+    // double bracket_clp = - residual_[row];
+    b += lp_.Avalue_[k] * bracket;
+  }
+
+  a = (0.5 / mu) * a;
+  b = (0.5 / mu) * b + 0.5 * lp_.colCost_[col];
+
+  double theta = -b / a;
+  double delta_x = 0;
+
+  // matlab
+  double new_x;
+  if (theta > 0)
+    new_x = std::min(theta, lp_.colUpper_[col]);
+  else
+    new_x = std::max(theta, lp_.colLower_[col]);
+  delta_x = new_x - col_value_[col];
+
+  // clp minimizing for delta_x
+  // if (theta > 0)
+  //   delta_x = std::min(theta, lp_.colUpper_[col] - col_value_[col]);
+  // else
+  //   delta_x = std::max(theta, lp_.colLower_[col] - col_value_[col]);
+
+  col_value_[col] += delta_x;
+
+  // Update objective, row_value, residual after each component update.
+  objective_ += lp_.colCost_[col] * delta_x;
+  for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
+    int row = lp_.Aindex_[k];
+    residual_[row] -= lp_.Avalue_[k] * delta_x;
+    row_value_[row] += lp_.Avalue_[k] * delta_x;
+  }
+}
+
+void Quadratic::minimize_component_quadratic_piecewise(
+    const int col, const double mu, const std::vector<double> &lambda) {
+
+  double theta = 0;
+  // todo: Calculate step theta using true residual.
+  double delta_x = 0;
+
+  // matlab
+  double new_x;
+  if (theta > 0)
+    new_x = std::min(theta, lp_.colUpper_[col]);
+  else
+    new_x = std::max(theta, lp_.colLower_[col]);
+  delta_x = new_x - col_value_[col];
+
+  col_value_[col] += delta_x;
+
+  // Update objective, row_value, residual after each component update.
+  objective_ += lp_.colCost_[col] * delta_x;
+  for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
+    int row = lp_.Aindex_[k];
+    // todo: use true resdual
+    // residual_[row] -= lp_.Avalue_[k] * delta_x;
+    row_value_[row] += lp_.Avalue_[k] * delta_x;
+  }
+}
+
+void Quadratic::minimize_by_component(
+    const double mu, const std::vector<double> &lambda,
+    const ResidualFunctionType quadratic_type) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
   int iterations = 100;
- 
-  HighsPrintMessage(ML_DESC,
-                    "Values at start: %3.2g, %3.4g, \n",
-                    objective_,
+
+  HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
 
-  HighsPrintMessage(ML_DESC,
-                    "Values at start: %3.2g, %3.4g, \n",
-                    objective_,
+  HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
 
   for (int iteration = 0; iteration < iterations; iteration++) {
     for (int col = 0; col < lp_.numCol_; col++) {
       // determine whether to minimize for col.
-      // if empty skip. 
-      if (lp_.Astart_[col] == lp_.Astart_[col+1])
+      // if empty skip.
+      if (lp_.Astart_[col] == lp_.Astart_[col + 1])
         continue;
-      // todo: add slope calculation.
 
-      // Minimize quadratic for column col.
-
-      // Formulas for a and b when minimizing for x_j
-      // a = (1/(2*mu)) * sum_i a_ij^2
-      // b = -(1/(2*mu)) sum_i (2 * a_ij * (sum_{k!=j} a_ik * x_k - b_i)) + c_j \
-      //     + sum_i a_ij * lambda_i
-      // b / 2 = -(1/(2*mu)) sum_i (2 * a_ij
-      double a = 0.0;
-      double b = 0.0;
-
-      for (int k = lp_.Astart_[col]; k < lp_.Astart_[col+1]; k++) {
-        int row = lp_.Aindex_[k];
-        a += lp_.Avalue_[k] * lp_.Avalue_[k];
-        // matlab but with b = b / 2
-        double bracket = - residual_[row] - lp_.Avalue_[k] * col_value_[col];
-        bracket += lambda[row];
-        // clp minimizing for delta_x
-        // double bracket_clp = - residual_[row];
-        b += lp_.Avalue_[k] * bracket;
-      }
-
-      a = (0.5 / mu) * a;
-      b = (0.5 / mu) * b + 0.5 * lp_.colCost_[col];
-
-      double theta = -b / a;
       double delta_x = 0;
+      if (quadratic_type == ResidualFunctionType::kLinearised)
+        minimize_component_quadratic_linearisation(col, mu, lambda);
+      else if (quadratic_type == ResidualFunctionType::kPiecewise)
+        minimize_component_quadratic_piecewise(col, mu, lambda);
 
-      // matlab
-      double new_x;
-      if (theta > 0)
-        new_x = std::min(theta, lp_.colUpper_[col]);
-      else
-        new_x = std::max(theta, lp_.colLower_[col]);
-      delta_x = new_x - col_value_[col];
-
-      // clp minimizing for delta_x
-      // if (theta > 0)
-      //   delta_x = std::min(theta, lp_.colUpper_[col] - col_value_[col]);
-      // else
-      //   delta_x = std::max(theta, lp_.colLower_[col] - col_value_[col]);
-
-      col_value_[col] += delta_x;
-
-      // Update objective, row_value, residual after each component update.
-      objective_ += lp_.colCost_[col] * delta_x;
-      for (int k = lp_.Astart_[col]; k < lp_.Astart_[col+1]; k++) {
-        int row = lp_.Aindex_[k];
-        residual_[row] -= lp_.Avalue_[k] * delta_x;
-        row_value_[row] += lp_.Avalue_[k] * delta_x;
-      }
     }
 
     // Code below gets the residual norms updated.
-    update();
-    // updateResidual();
+    update(quadratic_type);
 
     HighsPrintMessage(ML_DESC,
                       "Values at approximate iteration %d: %3.2g, %3.4g, \n",
@@ -299,9 +358,14 @@ HighsStatus initialize(const HighsLp& lp,
 HighsStatus runFeasibility(const HighsLp& lp,
                            HighsSolution& solution,
                            const MinimizationType type) {
-  if (!isEqualityProblem(lp))
-    return HighsStatus::NotImplemented;
   
+   ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised;
+   // ResidualFunctionType quadratic_type = ResidualFunctionType::kPiecewise;
+  
+  if (quadratic_type != ResidualFunctionType::kPiecewise &&
+      !isEqualityProblem(lp))
+      return HighsStatus::NotImplemented;
+
   if (lp.sense_ != OBJSENSE_MINIMIZE) {
     HighsPrintMessage(ML_ALWAYS,
                       "Error: FindFeasibility does not support maximization problems.\n");
@@ -340,7 +404,7 @@ HighsStatus runFeasibility(const HighsLp& lp,
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
     if (type == MinimizationType::kComponentWise)
-      quadratic.minimize_by_component(mu, lambda);
+      quadratic.minimize_by_component(mu, lambda, quadratic_type);
     else if (type == MinimizationType::kExact)
       //quadratic.minimize_exact_penalty(mu);
       quadratic.minimize_exact_with_lambda(mu, lambda);
