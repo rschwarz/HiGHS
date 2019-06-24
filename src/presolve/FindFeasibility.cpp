@@ -100,7 +100,7 @@ class Quadratic {
       ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 
   double calculateQuadraticValue(const double mu,
-                                 const std::vector<double> lambda) const;
+                                 const std::vector<double> lambda, ResidualFunctionType type);
   double findBreakpoints(const int col, const double mu,
                          const std::vector<double> lambda);
 };
@@ -283,7 +283,9 @@ void Quadratic::minimize_component_quadratic_linearisation(
 
 // Returns c'x + lambda'x + 1/2mu r'r
 double Quadratic::calculateQuadraticValue(
-    const double mu, const std::vector<double> lambda) const {
+    const double mu, const std::vector<double> lambda, ResidualFunctionType type) {
+  update(type);
+
   // c'x
   double quadratic = getObjective();
 
@@ -318,17 +320,17 @@ double Quadratic::findBreakpoints(const int col, const double mu,
       std::unique(breakpoints.begin(), breakpoints.end());
 
   std::vector<double>::iterator min_x_update_it = breakpoints.begin();
-  double min_quadratic_value = calculateQuadraticValue(mu, lambda);
+  double min_quadratic_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
 
-  std::vector<double>::iterator it;
-  for (it = breakpoints.begin(); it < end; it++) {
-    double min = calculateQuadraticValue(mu, lambda);
+  for (auto it = breakpoints.begin(); it < end; it++) {
+    double min = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
     if (min < min_quadratic_value) {
       min_quadratic_value = min;
       min_x_update_it = it;
     }
   }
 
+  std::vector<double>::iterator it = min_x_update_it;
   // Minimize both quadratics and save min theta's in delta_lhs and delta_rhs.
   double delta_lhs = 0;
   double delta_rhs = 0;
@@ -393,9 +395,9 @@ double Quadratic::findBreakpoints(const int col, const double mu,
 
   double col_save = col_value_[col];
   col_value_[col] += delta_lhs;
-  double left_min_value = calculateQuadraticValue(mu, lambda);
-  col_value_[col] = col_save + delta_lhs;
-  double right_min_value = calculateQuadraticValue(mu, lambda);
+  double left_min_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  col_value_[col] = col_save + delta_rhs;
+  double right_min_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
   col_value_[col] = col_save;
 
   double min_value;
@@ -414,13 +416,12 @@ double Quadratic::findBreakpoints(const int col, const double mu,
 
 void Quadratic::minimize_component_quadratic_piecewise(
     const int col, const double mu, const std::vector<double>& lambda) {
-  double theta = 0;
   // Calculate step theta using true residual. The function minimized for each
   // component has breakpoints. They are found and sorted and the minimum
   // Quadratic function value of them is taken as an approximation of the true
   // minimum.
 
-  double delta_x = findBreakpoints(col, mu, lambda);
+  double theta = findBreakpoints(col, mu, lambda);
 
   // matlab
   double new_x;
@@ -428,7 +429,7 @@ void Quadratic::minimize_component_quadratic_piecewise(
     new_x = std::min(theta, lp_.colUpper_[col]);
   else
     new_x = std::max(theta, lp_.colLower_[col]);
-  delta_x = new_x - col_value_[col];
+  double delta_x = new_x - col_value_[col];
 
   col_value_[col] += delta_x;
 
@@ -436,9 +437,8 @@ void Quadratic::minimize_component_quadratic_piecewise(
   objective_ += lp_.colCost_[col] * delta_x;
   for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
     int row = lp_.Aindex_[k];
-    // todo: use true resdual
-    // residual_[row] -= lp_.Avalue_[k] * delta_x;
-    row_value_[row] += lp_.Avalue_[k] * delta_x;
+    // todo: this is slow
+    update(ResidualFunctionType::kPiecewise);
   }
 }
 
