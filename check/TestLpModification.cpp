@@ -173,13 +173,13 @@ void test_delete_keep(const int row_dim,
   printf("Keep   [%2d, %2d)\n", 0, keep_to_row);
   if (keep_to_row >= row_dim) return;
   for (int k = 0; k < row_dim; k++) {
-    update_out_in_ix(row_dim,
-		     interval, from_row, to_row,
-		     set, num_set_entries, row_set,
-		     mask, row_mask,
-		     delete_from_row, delete_to_row,
-		     keep_from_row, keep_to_row,
-		     current_set_entry);
+    updateOutInIx(row_dim,
+		  interval, from_row, to_row,
+		  set, num_set_entries, row_set,
+		  mask, row_mask,
+		  delete_from_row, delete_to_row,
+		  keep_from_row, keep_to_row,
+		  current_set_entry);
     printf("Delete [%2d, %2d); keep [%2d, %2d)\n", delete_from_row, delete_to_row, keep_from_row, keep_to_row);
     if (delete_to_row == row_dim || keep_to_row == row_dim) break;
   }
@@ -251,6 +251,7 @@ void messageReportMatrix(const char* message, const int num_col, const int num_n
 
 // No commas in test case name.
 TEST_CASE("LP-modification", "[highs_data]") {
+  /*
   HighsOptions options;
   HighsSetMessagelevel(ML_ALWAYS);
 
@@ -389,7 +390,6 @@ TEST_CASE("LP-modification", "[highs_data]") {
 
   //  messageReportLp("After deleting columns 1, 3, 5, 7", reference_lp);
 
-  /*
   return_bool = highs.addCols(col1357_num_col, col1357_cost, col1357_lower, col1357_upper,
 			      col1357_num_nz, col1357_start, col1357_index, col1357_value);
   REQUIRE(return_bool);

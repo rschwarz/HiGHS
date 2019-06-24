@@ -1,22 +1,20 @@
 #include "FindFeasibility.h"
 
 #include <algorithm>
-#include <sstream>
 #include <cmath>
 #include <iomanip>
+#include <sstream>
 
 #include "io/HighsIO.h"
 #include "lp_data/HConst.h"
-#include "presolve/ExactSubproblem.h"
-#include "lp_data/HConst.h"
 #include "lp_data/HighsLpUtils.h"
+#include "presolve/ExactSubproblem.h"
 
 constexpr double kExitTolerance = 0.00000001;
 
 bool isEqualityProblem(const HighsLp& lp) {
   for (int row = 0; row < lp.numRow_; row++)
-    if (lp.rowLower_[row] != lp.rowUpper_[row])
-      return false;
+    if (lp.rowLower_[row] != lp.rowUpper_[row]) return false;
 
   return true;
 }
@@ -25,7 +23,7 @@ std::vector<double> getAtb(const HighsLp& lp) {
   assert(lp.rowUpper_ == lp.rowLower_);
   std::vector<double> atb(lp.numCol_, 0);
   for (int col = 0; col < lp.numCol_; col++) {
-    for (int k = lp.Astart_[col]; k < lp.Astart_[col+1]; k++) {
+    for (int k = lp.Astart_[col]; k < lp.Astart_[col + 1]; k++) {
       const int row = lp.Aindex_[k];
       atb.at(col) += lp.Avalue_[k] * lp.rowUpper_[row];
     }
@@ -37,7 +35,7 @@ std::vector<double> getAtLambda(const HighsLp& lp,
                                 const std::vector<double> lambda) {
   std::vector<double> atl(lp.numCol_);
   for (int col = 0; col < lp.numCol_; col++) {
-    for (int k = lp.Astart_[col]; k < lp.Astart_[col+1]; k++) {
+    for (int k = lp.Astart_[col]; k < lp.Astart_[col + 1]; k++) {
       const int row = lp.Aindex_[k];
       atl.at(col) += lp.Avalue_[k] * lambda[row];
     }
@@ -45,17 +43,14 @@ std::vector<double> getAtLambda(const HighsLp& lp,
   return atl;
 }
 
-enum class ResidualFunctionType {
-  kLinearised,
-  kPiecewise
-};
+enum class ResidualFunctionType { kLinearised, kPiecewise };
 
-class Quadratic
-{
+class Quadratic {
  public:
-  Quadratic(const HighsLp& lp,
-            std::vector<double>& primal_values) :
-            lp_(lp), col_value_(primal_values) { update(); }
+  Quadratic(const HighsLp& lp, std::vector<double>& primal_values)
+      : lp_(lp), col_value_(primal_values) {
+    update();
+  }
 
   const std::vector<double>& getResidual() const { return residual_; }
   double getResidualNorm2() const { return residual_norm_2_; }
@@ -74,14 +69,13 @@ class Quadratic
     HighsPrintMessage(ML_ALWAYS, "Solution min element: %4.3f\n", min);
   }
 
-  void minimize_by_component(const double mu,
-                             const std::vector<double>& lambda,
+  void minimize_by_component(const double mu, const std::vector<double>& lambda,
                              const ResidualFunctionType type);
 
-  void minimize_component_quadratic_linearisation(const int col,const double mu,
-                                      const std::vector<double>& lambda);
-  void minimize_component_quadratic_piecewise(const int col,const double mu,
-                                      const std::vector<double>& lambda);
+  void minimize_component_quadratic_linearisation(
+      const int col, const double mu, const std::vector<double>& lambda);
+  void minimize_component_quadratic_piecewise(
+      const int col, const double mu, const std::vector<double>& lambda);
   void minimize_exact_penalty(const double mu);
   void minimize_exact_with_lambda(const double mu,
                                   const std::vector<double>& lambda);
@@ -98,17 +92,17 @@ class Quadratic
 
   void updateObjective();
   void updateRowValue();
-  void updateResidual(ResidualFunctionType quadratic_type =
-                          ResidualFunctionType::kLinearised);
+  void updateResidual(
+      ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 
-  void update(ResidualFunctionType quadratic_type =
-                  ResidualFunctionType::kLinearised);
+  void update(
+      ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 };
 
-void Quadratic::update(ResidualFunctionType quadratic_type ) {
-    updateObjective();
-    updateRowValue();
-    updateResidual(quadratic_type);
+void Quadratic::update(ResidualFunctionType quadratic_type) {
+  updateObjective();
+  updateRowValue();
+  updateResidual(quadratic_type);
 }
 
 void Quadratic::updateRowValue() {
@@ -116,7 +110,7 @@ void Quadratic::updateRowValue() {
   row_value_.assign(lp_.numRow_, 0);
 
   for (int col = 0; col < lp_.numCol_; col++) {
-    for (int k = lp_.Astart_[col]; k < lp_.Astart_[col+1]; k++) {
+    for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
       int row = lp_.Aindex_[k];
       row_value_[row] += lp_.Avalue_[k] * col_value_[col];
     }
@@ -130,7 +124,7 @@ void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
   residual_norm_2_ = 0;
 
   if (quadratic_type == ResidualFunctionType::kLinearised) {
-    for (int row = 0; row  < lp_.numRow_; row++) {
+    for (int row = 0; row < lp_.numRow_; row++) {
       // for the moment assuming rowLower == rowUpper
       residual_[row] = lp_.rowUpper_[row] - row_value_[row];
 
@@ -139,7 +133,7 @@ void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
     }
 
   } else if (quadratic_type == ResidualFunctionType::kPiecewise)
-    for (int row = 0; row  < lp_.numRow_; row++) {
+    for (int row = 0; row < lp_.numRow_; row++) {
       double value = 0;
       if (row_value_[row] <= lp_.rowLower_[row])
         value = lp_.rowLower_[row] - row_value_[row];
@@ -151,7 +145,7 @@ void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
       residual_norm_2_ += residual_[row] * residual_[row];
     }
 
-    residual_norm_2_ = std::sqrt(residual_norm_2_);
+  residual_norm_2_ = std::sqrt(residual_norm_2_);
 }
 
 void Quadratic::updateObjective() {
@@ -160,7 +154,44 @@ void Quadratic::updateObjective() {
     objective_ += lp_.colCost_[col] * col_value_[col];
 }
 
-void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<double>& lambda) {
+double chooseStartingMu(const HighsLp& lp) { return 0.001; }
+
+HighsStatus initialize(const HighsLp& lp, HighsSolution& solution, double& mu,
+                       std::vector<double>& lambda) {
+  if (!isSolutionConsistent(lp, solution)) {
+    // clear and resize solution.
+    solution.col_value.clear();
+    solution.col_dual.clear();
+    solution.row_value.clear();
+    solution.row_dual.clear();
+
+    solution.col_value.resize(lp.numCol_);
+  }
+
+  for (int col = 0; col < lp.numCol_; col++) {
+    if (lp.colLower_[col] <= 0 && lp.colUpper_[col] >= 0)
+      solution.col_value[col] = 0;
+    else if (lp.colLower_[col] > 0)
+      solution.col_value[col] = lp.colLower_[col];
+    else if (lp.colUpper_[col] < 0)
+      solution.col_value[col] = lp.colUpper_[col];
+    else {
+      HighsLogMessage(HighsMessageType::ERROR,
+                      "Error setting initial value for column %d", col);
+      return HighsStatus::Error;
+    }
+  }
+
+  mu = chooseStartingMu(lp);
+
+  lambda.resize(lp.numRow_);
+  lambda.assign(lp.numRow_, 0);
+
+  return HighsStatus::OK;
+}
+
+void Quadratic::minimize_exact_with_lambda(const double mu,
+                                           const std::vector<double>& lambda) {
   double mu_penalty = 1.0 / mu;
   HighsLp lp = lp_;
   // Modify cost. See notebook ."lambda"
@@ -171,7 +202,7 @@ void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<do
   std::vector<double> atlambda = getAtLambda(lp, lambda);
   for (int col = 0; col < lp.colCost_.size(); col++)
     lp.colCost_[col] -= atlambda[col];
- 
+
   solve_exact(lp, mu_penalty, col_value_);
 
   update();
@@ -190,8 +221,7 @@ void Quadratic::minimize_exact_penalty(const double mu) {
 }
 
 void Quadratic::minimize_component_quadratic_linearisation(
-    const int col, const double mu, const std::vector<double> &lambda) {
-
+    const int col, const double mu, const std::vector<double>& lambda) {
   // Minimize quadratic for column col.
 
   // Formulas for a and b when minimizing for x_j
@@ -245,8 +275,7 @@ void Quadratic::minimize_component_quadratic_linearisation(
 }
 
 void Quadratic::minimize_component_quadratic_piecewise(
-    const int col, const double mu, const std::vector<double> &lambda) {
-
+    const int col, const double mu, const std::vector<double>& lambda) {
   double theta = 0;
   // todo: Calculate step theta using true residual.
   double delta_x = 0;
@@ -272,13 +301,10 @@ void Quadratic::minimize_component_quadratic_piecewise(
 }
 
 void Quadratic::minimize_by_component(
-    const double mu, const std::vector<double> &lambda,
+    const double mu, const std::vector<double>& lambda,
     const ResidualFunctionType quadratic_type) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
   int iterations = 100;
-
-  HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
-                    residual_norm_2_);
 
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
@@ -287,88 +313,37 @@ void Quadratic::minimize_by_component(
     for (int col = 0; col < lp_.numCol_; col++) {
       // determine whether to minimize for col.
       // if empty skip.
-      if (lp_.Astart_[col] == lp_.Astart_[col + 1])
-        continue;
+      if (lp_.Astart_[col] == lp_.Astart_[col + 1]) continue;
 
       double delta_x = 0;
       if (quadratic_type == ResidualFunctionType::kLinearised)
         minimize_component_quadratic_linearisation(col, mu, lambda);
       else if (quadratic_type == ResidualFunctionType::kPiecewise)
         minimize_component_quadratic_piecewise(col, mu, lambda);
-
     }
-
-    // Code below gets the residual norms updated.
-    update(quadratic_type);
 
     HighsPrintMessage(ML_DESC,
                       "Values at approximate iteration %d: %3.2g, %3.4g, \n",
-                      iteration,
-                      objective_,
-                      residual_norm_2_);
+                      iteration, objective_, residual_norm_2_);
 
     // todo: check for early exit
   }
   update();
 }
 
-double chooseStartingMu(const HighsLp& lp) {
-  return 0.001;
-  //return 1000;
-}
-
-
-HighsStatus initialize(const HighsLp& lp,
-                       HighsSolution& solution,
-                       double& mu,
-                       std::vector<double>& lambda)
-{
-  if (!isSolutionConsistent(lp, solution)) {
-    // clear and resize solution.
-    solution.col_value.clear();
-    solution.col_dual.clear();
-    solution.row_value.clear();
-    solution.row_dual.clear();
-
-    solution.col_value.resize(lp.numCol_);
-  }
-
-  for (int col = 0; col < lp.numCol_; col++) {
-    if (lp.colLower_[col] <= 0 && lp.colUpper_[col] >= 0)
-      solution.col_value[col] = 0;
-    else if (lp.colLower_[col] > 0)
-      solution.col_value[col] = lp.colLower_[col];
-    else if (lp.colUpper_[col] < 0)
-      solution.col_value[col] = lp.colUpper_[col];
-    else {
-      HighsLogMessage(HighsMessageType::ERROR,
-                      "Error setting initial value for column %d", col);
-      return HighsStatus::Error;
-    }
-  }
-
-  mu = chooseStartingMu(lp);
-
-  lambda.resize(lp.numRow_);
-  lambda.assign(lp.numRow_, 0);
-
-  return HighsStatus::OK;
-}
-
-HighsStatus runFeasibility(const HighsLp& lp,
-                           HighsSolution& solution,
+HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
                            const MinimizationType type) {
-  
-   ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised;
-   // ResidualFunctionType quadratic_type = ResidualFunctionType::kPiecewise;
-  
+  ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised;
+  // ResidualFunctionType quadratic_type = ResidualFunctionType::kPiecewise;
+
   if (quadratic_type != ResidualFunctionType::kPiecewise &&
       !isEqualityProblem(lp))
-      return HighsStatus::NotImplemented;
+    return HighsStatus::NotImplemented;
 
   if (lp.sense_ != OBJSENSE_MINIMIZE) {
-    HighsPrintMessage(ML_ALWAYS,
-                      "Error: FindFeasibility does not support maximization problems.\n");
+    HighsPrintMessage(
+        ML_ALWAYS,
+        "Error: FindFeasibility does not support maximization problems.\n");
   }
 
   // Initialize x_0 ≥ 0, μ_1, λ_1 = 0.
@@ -379,22 +354,26 @@ HighsStatus runFeasibility(const HighsLp& lp,
   Quadratic quadratic(lp, solution.col_value);
 
   if (type == MinimizationType::kComponentWise)
-    HighsPrintMessage(ML_ALWAYS, "Minimizing quadratic subproblem component-wise...\n");
+    HighsPrintMessage(ML_ALWAYS,
+                      "Minimizing quadratic subproblem component-wise...\n");
   else if (type == MinimizationType::kExact)
-    HighsPrintMessage(ML_ALWAYS, "Minimizing quadratic subproblem exactly...\n");
+    HighsPrintMessage(ML_ALWAYS,
+                      "Minimizing quadratic subproblem exactly...\n");
 
   // Report values at start.
   std::stringstream ss;
   double residual_norm_2 = quadratic.getResidualNorm2();
   ss << "Iteration " << std::setw(3) << 0 << ": objective " << std::setw(3)
-      << std::fixed << std::setprecision(2)
-      << quadratic.getObjective() << " residual " << std::setw(5)
-      << std::scientific << quadratic.getResidualNorm2() << std::endl;
+     << std::fixed << std::setprecision(2) << quadratic.getObjective()
+     << " residual " << std::setw(5) << std::scientific
+     << quadratic.getResidualNorm2() << std::endl;
   HighsPrintMessage(ML_ALWAYS, ss.str().c_str());
 
   residual_norm_2 = quadratic.getResidualNorm2();
   if (residual_norm_2 < kExitTolerance) {
-    HighsPrintMessage(ML_ALWAYS, "Solution feasible within exit tolerance: %g.\n", kExitTolerance);
+    HighsPrintMessage(ML_ALWAYS,
+                      "Solution feasible within exit tolerance: %g.\n",
+                      kExitTolerance);
     return HighsStatus::OK;
   }
 
@@ -406,21 +385,23 @@ HighsStatus runFeasibility(const HighsLp& lp,
     if (type == MinimizationType::kComponentWise)
       quadratic.minimize_by_component(mu, lambda, quadratic_type);
     else if (type == MinimizationType::kExact)
-      //quadratic.minimize_exact_penalty(mu);
+      // quadratic.minimize_exact_penalty(mu);
       quadratic.minimize_exact_with_lambda(mu, lambda);
 
     // Report outcome.
     residual_norm_2 = quadratic.getResidualNorm2();
     ss.str(std::string());
-    ss << "Iteration " << std::setw(3) << iteration << ": objective " << std::setw(3)
-       << std::fixed << std::setprecision(2)
+    ss << "Iteration " << std::setw(3) << iteration << ": objective "
+       << std::setw(3) << std::fixed << std::setprecision(2)
        << quadratic.getObjective() << " residual " << std::setw(5)
        << std::scientific << residual_norm_2 << std::endl;
     HighsPrintMessage(ML_ALWAYS, ss.str().c_str());
 
     // Exit if feasible.
     if (residual_norm_2 < kExitTolerance) {
-      HighsPrintMessage(ML_ALWAYS, "Solution feasible within exit tolerance: %g.\n", kExitTolerance);
+      HighsPrintMessage(ML_ALWAYS,
+                        "Solution feasible within exit tolerance: %g.\n",
+                        kExitTolerance);
       break;
     }
 
@@ -429,22 +410,22 @@ HighsStatus runFeasibility(const HighsLp& lp,
       mu = 0.1 * mu;
     } else {
       lambda = quadratic.getResidual();
-      for (int row = 0; row < lp.numRow_; row++)
-        lambda[row] = mu * lambda[row];
+      for (int row = 0; row < lp.numRow_; row++) lambda[row] = mu * lambda[row];
     }
   }
 
   quadratic.getSolution(solution);
   HighsPrintMessage(ML_ALWAYS,
                     "\nSolution set at the end of feasibility search.\n");
-  
+
   // Using ss again instead of ss_str messes up HighsIO.
   std::stringstream ss_str;
-  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", quadratic_objective, " << std::setw(3)
-      << std::fixed << std::setprecision(2)
-      << quadratic.getObjective() << ", c'x, " << calculateObjective(lp, solution) <<" ,residual, " << std::setw(5)
-      << std::scientific << residual_norm_2 << "," << std::endl;
+  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration
+         << ", quadratic_objective, " << std::setw(3) << std::fixed
+         << std::setprecision(2) << quadratic.getObjective() << ", c'x, "
+         << calculateObjective(lp, solution) << " ,residual, " << std::setw(5)
+         << std::scientific << residual_norm_2 << "," << std::endl;
   HighsPrintMessage(ML_ALWAYS, ss_str.str().c_str());
- 
+
   return HighsStatus::OK;
 }
