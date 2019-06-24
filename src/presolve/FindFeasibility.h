@@ -6,6 +6,7 @@
 
 enum class MinimizationType {
   kComponentWise,
+  kComponentWiseBreakpoints,
   kExact,
 };
 

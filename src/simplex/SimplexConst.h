@@ -108,6 +108,7 @@ const bool invert_if_row_out_negative = true;
 
 enum class FeasibilityStrategy {
   kApproxComponentWise,
+  kApproxComponentWiseBreakpoints,
   kApproxExact,
   kDirectSolve
 };

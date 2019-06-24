@@ -100,7 +100,8 @@ class Quadratic {
       ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 
   double calculateQuadraticValue(const double mu,
-                                 const std::vector<double> lambda, ResidualFunctionType type);
+                                 const std::vector<double> lambda,
+                                 ResidualFunctionType type);
   double findBreakpoints(const int col, const double mu,
                          const std::vector<double> lambda);
 };
@@ -282,8 +283,9 @@ void Quadratic::minimize_component_quadratic_linearisation(
 }
 
 // Returns c'x + lambda'x + 1/2mu r'r
-double Quadratic::calculateQuadraticValue(
-    const double mu, const std::vector<double> lambda, ResidualFunctionType type) {
+double Quadratic::calculateQuadraticValue(const double mu,
+                                          const std::vector<double> lambda,
+                                          ResidualFunctionType type) {
   update(type);
 
   // c'x
@@ -320,10 +322,12 @@ double Quadratic::findBreakpoints(const int col, const double mu,
       std::unique(breakpoints.begin(), breakpoints.end());
 
   std::vector<double>::iterator min_x_update_it = breakpoints.begin();
-  double min_quadratic_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  double min_quadratic_value =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
 
   for (auto it = breakpoints.begin(); it < end; it++) {
-    double min = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+    double min =
+        calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
     if (min < min_quadratic_value) {
       min_quadratic_value = min;
       min_x_update_it = it;
@@ -395,9 +399,11 @@ double Quadratic::findBreakpoints(const int col, const double mu,
 
   double col_save = col_value_[col];
   col_value_[col] += delta_lhs;
-  double left_min_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  double left_min_value =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
   col_value_[col] = col_save + delta_rhs;
-  double right_min_value = calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  double right_min_value =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
   col_value_[col] = col_save;
 
   double min_value;
@@ -479,8 +485,9 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   // for an equality problem kLinearized and kPiecewise should give the
   // same result.
 
-  // ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised;
-  ResidualFunctionType quadratic_type = ResidualFunctionType::kPiecewise;
+  ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised;
+  if (type == MinimizationType::kComponentWiseBreakpoints)
+    quadratic_type = ResidualFunctionType::kPiecewise;
 
   if (quadratic_type != ResidualFunctionType::kPiecewise &&
       !isEqualityProblem(lp))
@@ -528,7 +535,8 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
-    if (type == MinimizationType::kComponentWise)
+    if (type == MinimizationType::kComponentWise ||
+        type == MinimizationType::kComponentWiseBreakpoints)
       quadratic.minimize_by_component(mu, lambda, quadratic_type);
     else if (type == MinimizationType::kExact)
       // quadratic.minimize_exact_penalty(mu);

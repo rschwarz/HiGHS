@@ -524,6 +524,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
     options.feasibility_strategy = FeasibilityStrategy::kApproxComponentWise;
   else if (value == "approx_exact")
     options.feasibility_strategy = FeasibilityStrategy::kApproxExact;
+  else if (value == "approx_breakpoints")
+    options.feasibility_strategy = FeasibilityStrategy::kApproxComponentWiseBreakpoints;
   else if (value == "direct")
     options.feasibility_strategy = FeasibilityStrategy::kDirectSolve;
   else {

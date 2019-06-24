@@ -93,24 +93,39 @@ HighsStatus Highs::run() {
 
     // Add slacks and make sure a minimization problem is passed to
     // runFeasibility.
-    HighsLp primal = transformIntoEqualityProblem(lp_);
-    if (options_.feasibility_strategy_dualize) {
-      // Add slacks & dualize.
-      HighsLp dual = dualizeEqualityProblem(primal);
-      // dualizeEqualityProblem returns a minimization problem.
-      initializeLp(dual);
+    if (options_.feasibility_strategy !=
+        FeasibilityStrategy::kApproxComponentWiseBreakpoints) {
+      HighsLp primal = transformIntoEqualityProblem(lp_);
+      if (options_.feasibility_strategy_dualize) {
+        // Add slacks & dualize.
+        HighsLp dual = dualizeEqualityProblem(primal);
+        // dualizeEqualityProblem returns a minimization problem.
+        initializeLp(dual);
+      } else {
+        // If maximization, minimize before calling runFeasibility.
+        if (primal.sense_ != OBJSENSE_MINIMIZE) {
+          for (int col = 0; col < primal.numCol_; col++)
+            primal.colCost_[col] = -primal.colCost_[col];
+        }
+        initializeLp(primal);
+      }
     } else {
       // If maximization, minimize before calling runFeasibility.
-      if (primal.sense_ != OBJSENSE_MINIMIZE) {
-        for (int col = 0; col < primal.numCol_; col++)
-          primal.colCost_[col] = -primal.colCost_[col];
+      HighsLp lp = lp_;
+      if (lp.sense_ != OBJSENSE_MINIMIZE) {
+        for (int col = 0; col < lp.numCol_; col++)
+          lp.colCost_[col] = -lp.colCost_[col];
       }
-      initializeLp(primal);
+      initializeLp(lp);
     }
 
     if (options_.feasibility_strategy ==
         FeasibilityStrategy::kApproxComponentWise)
       return runFeasibility(lp_, solution_, MinimizationType::kComponentWise);
+    else if (options_.feasibility_strategy ==
+             FeasibilityStrategy::kApproxComponentWiseBreakpoints)
+      return runFeasibility(lp_, solution_,
+                            MinimizationType::kComponentWiseBreakpoints);
     else if (options_.feasibility_strategy == FeasibilityStrategy::kApproxExact)
       return runFeasibility(lp_, solution_, MinimizationType::kExact);
     else if (options_.feasibility_strategy ==
@@ -363,8 +378,8 @@ HighsStatus Highs::run() {
             // be used
             HighsOptions save_options = options_;
             options_.simplex_strategy = SimplexStrategy::CHOOSE;
-	    // Set the message level to ML_ALWAYS so that data for
-	    // individual iterations are reported
+            // Set the message level to ML_ALWAYS so that data for
+            // individual iterations are reported
             HighsSetMessagelevel(ML_ALWAYS);
             // Call runSolver
             HighsLogMessage(
@@ -373,7 +388,7 @@ HighsStatus Highs::run() {
             solve_status = runSolver(hmos_[solved_hmo]);
             // Recover the options
             options_ = save_options;
-	    // Reset the message level
+            // Reset the message level
             HighsSetMessagelevel(options_.messageLevel);
             int lp_solve_final_simplex_iteration_count =
                 hmos_[solved_hmo].simplex_info_.iteration_count;
