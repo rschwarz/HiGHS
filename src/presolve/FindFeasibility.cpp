@@ -230,6 +230,9 @@ void Quadratic::minimize_exact_penalty(const double mu) {
 
 void Quadratic::minimize_component_quadratic_linearisation(
     const int col, const double mu, const std::vector<double>& lambda) {
+  double current =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
+
   // Minimize quadratic for column col.
 
   // Formulas for a and b when minimizing for x_j
@@ -273,6 +276,10 @@ void Quadratic::minimize_component_quadratic_linearisation(
 
   col_value_[col] += delta_x;
 
+  double new_quadratic_objective =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
+
+  std::cout << "col " << col << ": " << delta_x << std::endl;
   // Update objective, row_value, residual after each component update.
   objective_ += lp_.colCost_[col] * delta_x;
   for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
@@ -293,7 +300,7 @@ double Quadratic::calculateQuadraticValue(const double mu,
 
   // lambda'x
   for (int row = 0; row < lp_.numRow_; row++) {
-    assert(residual_[row] >= 0);
+    if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >= 0);
     quadratic += lambda[row] * residual_[row];
   }
 
@@ -321,27 +328,95 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   std::vector<double>::iterator end =
       std::unique(breakpoints.begin(), breakpoints.end());
 
-  std::vector<double>::iterator min_x_update_it = breakpoints.begin();
-  double min_quadratic_value =
+  double col_save = col_value_[col];
+  std::vector<double>::iterator min_x_update_it_i = breakpoints.begin();
+  std::vector<double>::iterator min_x_update_it_ii = breakpoints.begin();
+  col_value_[col] = col_save + *breakpoints.begin();
+  double current =
       calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
 
+  double min_quadratic_value_i = current;
+  double min_quadratic_value_ii = current;
   for (auto it = breakpoints.begin(); it < end; it++) {
+    col_value_[col] = col_save + *it;
     double min =
         calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
-    if (min < min_quadratic_value) {
-      min_quadratic_value = min;
-      min_x_update_it = it;
+
+    if (min < min_quadratic_value_i) {
+      min_quadratic_value_i = min;
+      min_quadratic_value_ii = min;
+      min_x_update_it_i = it;
+      min_x_update_it_ii = it;
+
+    } else if (min < min_quadratic_value_ii) {
+      min_quadratic_value_ii = min;
+      min_x_update_it_ii = it;
+    } else if (fabs(min - min_quadratic_value_i) < 1e08 &&
+               fabs(min - min_quadratic_value_ii) < 1e08) {
+      min_x_update_it_ii = it;
     }
   }
 
-  std::vector<double>::iterator it = min_x_update_it;
+  col_value_[col] = col_save;
+
   // Minimize both quadratics and save min theta's in delta_lhs and delta_rhs.
   double delta_lhs = 0;
+  double delta_mhs = 0;
   double delta_rhs = 0;
+
+  // minimize quadratic ,_,
+  if (min_x_update_it_i != min_x_update_it_ii) {
+    std::vector<double>::iterator it = min_x_update_it_i;
+    double left = *min_x_update_it_i;
+    double right = *min_x_update_it_ii;
+    assert(left < right);
+    assert(left > -HIGHS_CONST_INF);
+    assert(right < HIGHS_CONST_INF);
+
+    col_value_[col] = left;
+    update();
+
+    double a = 0.0;
+    double b = 0.0;
+
+    for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
+      int row = lp_.Aindex_[k];
+      a += lp_.Avalue_[k] * lp_.Avalue_[k];
+      double bracket = -residual_[row] - lp_.Avalue_[k] * col_value_[col];
+      bracket += lambda[row];
+      b += lp_.Avalue_[k] * bracket;
+    }
+
+    a = (0.5 / mu) * a;
+    b = (0.5 / mu) * b + 0.5 * lp_.colCost_[col];
+
+    double theta = -b / a;  // this is min for x_j
+
+    if (theta < left + col_save)
+      delta_mhs = left + col_save;
+    else if (theta > right + col_save)
+      delta_mhs = right + col_save;
+    else
+      delta_mhs = theta;
+  }
+
   // minimize quadratic `\,
-  if (it > breakpoints.begin()) {
+  std::vector<double>::iterator it = min_x_update_it_i;
+  if (it >= breakpoints.begin()) {
     double left = *(it - 1);
     double right;
+    if (it == breakpoints.begin()) {
+      left = -HIGHS_CONST_INF;
+      right = *it;
+      col_value_[col] = right;
+    } else if (it < end) {
+      right = *it;
+      col_value_[col] = right;
+    } else {
+      right = HIGHS_CONST_INF;
+      col_value_[col] = left;
+    }
+    update();
 
     double a = 0.0;
     double b = 0.0;
@@ -360,18 +435,26 @@ double Quadratic::findBreakpoints(const int col, const double mu,
     double theta = -b / a;  // this is min for x_j
     theta = theta - col_value_[col];
 
-    if (theta < left)
+    if (theta < left + col_save)
       delta_lhs = left;
-    else if (theta > right)
+    else if (theta > right + col_save)
       delta_lhs = right;
     else
       delta_lhs = theta;
   }
 
   // minimize quadratic ,/`
-  if (it < end - 1) {
+  it = min_x_update_it_ii;
+  if (it <= end - 1) {
     double left = *it;
     double right = *(it + 1);
+    if (it == breakpoints.begin()) {
+    } else if (it == end - 1) {
+      right = HIGHS_CONST_INF;
+    }
+
+    col_value_[col] = left;
+    update();
 
     double a = 0.0;
     double b = 0.0;
@@ -389,17 +472,19 @@ double Quadratic::findBreakpoints(const int col, const double mu,
 
     double theta = -b / a;  // this is min for x_j
     theta = theta - col_value_[col];
-    if (theta < left)
-      delta_rhs = left;
-    else if (theta > right)
-      delta_rhs = right;
+    if (theta < left + col_save)
+      delta_rhs = left + col_save;
+    else if (theta > right + col_save)
+      delta_rhs = right + col_save;
     else
       delta_rhs = theta;
   }
 
-  double col_save = col_value_[col];
-  col_value_[col] += delta_lhs;
+  col_value_[col] = col_save + delta_lhs;
   double left_min_value =
+      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  col_value_[col] = col_save + delta_mhs;
+  double mid_min_value =
       calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
   col_value_[col] = col_save + delta_rhs;
   double right_min_value =
@@ -407,7 +492,15 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   col_value_[col] = col_save;
 
   double min_value;
-  if (left_min_value < right_min_value)
+  if (min_x_update_it_i != min_x_update_it_ii) {
+    if (left_min_value < right_min_value && left_min_value < mid_min_value)
+      min_value = delta_lhs;
+    else if (right_min_value < left_min_value &&
+             right_min_value < mid_min_value)
+      min_value = delta_rhs;
+    else
+      min_value = delta_mhs;
+  } else if (left_min_value < right_min_value)
     min_value = delta_lhs;
   else
     min_value = delta_rhs;
@@ -417,7 +510,7 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   if ((col_value_[col] + min_value) > lp_.colUpper_[col])
     min_value = lp_.colUpper_[col] - col_value_[col];
 
-  return min_value;
+  return min_value - col_save;
 }
 
 void Quadratic::minimize_component_quadratic_piecewise(
@@ -432,12 +525,14 @@ void Quadratic::minimize_component_quadratic_piecewise(
   // matlab
   double new_x;
   if (theta > 0)
-    new_x = std::min(theta, lp_.colUpper_[col]);
+    new_x = std::min(theta, lp_.colUpper_[col] - col_value_[col]);
   else
-    new_x = std::max(theta, lp_.colLower_[col]);
+    new_x = std::max(theta, col_value_[col] - lp_.colLower_[col]);
   double delta_x = new_x - col_value_[col];
 
   col_value_[col] += delta_x;
+
+  std::cout << "col " << col << ": " << delta_x << std::endl;
 
   // Update objective, row_value, residual after each component update.
   objective_ += lp_.colCost_[col] * delta_x;
@@ -452,7 +547,7 @@ void Quadratic::minimize_by_component(
     const double mu, const std::vector<double>& lambda,
     const ResidualFunctionType quadratic_type) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
-  int iterations = 100;
+  int iterations = 3;
 
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
@@ -531,7 +626,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   }
 
   // Minimize approximately for K iterations.
-  int K = 200;
+  int K = 5;
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
