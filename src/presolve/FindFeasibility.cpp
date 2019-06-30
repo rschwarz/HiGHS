@@ -324,6 +324,15 @@ double Quadratic::findBreakpoints(const int col, const double mu,
       breakpoints.push_back(theta);
     }
   }
+  for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
+    const double entry = lp_.Avalue_[k];
+    const int row = lp_.Aindex_[k];
+    if (lp_.rowUpper_[row] < HIGHS_CONST_INF) {
+      double theta = (lp_.rowUpper_[row] - row_value_[row]) / entry;
+      breakpoints.push_back(theta);
+    }
+  }
+
   std::sort(breakpoints.begin(), breakpoints.end());
   std::vector<double>::iterator end =
       std::unique(breakpoints.begin(), breakpoints.end());
@@ -335,8 +344,8 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   double current =
       calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
 
-  double min_quadratic_value_i = current;
-  double min_quadratic_value_ii = current;
+  double min_quadratic_value_i = HIGHS_CONST_INF;
+  double min_quadratic_value_ii = HIGHS_CONST_INF;
   for (auto it = breakpoints.begin(); it < end; it++) {
     col_value_[col] = col_save + *it;
     double min =
@@ -358,6 +367,8 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   }
 
   col_value_[col] = col_save;
+
+  if (current < min_quadratic_value_i) return 0;
 
   // Minimize both quadratics and save min theta's in delta_lhs and delta_rhs.
   double delta_lhs = 0;
