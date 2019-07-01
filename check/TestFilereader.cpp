@@ -1,6 +1,4 @@
 #include <cstdio>
-#include <unistd.h>
-#define GetCurrentDir getcwd
 
 #include "FilereaderEms.h"
 #include "HMPSIO.h"
@@ -11,13 +9,32 @@
 #include "LoadProblem.h"
 #include "catch.hpp"
 
+#ifdef __linux__
+#include <unistd.h>
+#elif _WIN32
+#define NOGDI
+#include <windows.h>
+#else
+
+#endif
+
 std::string GetCurrentWorkingDir(void) {
   char buff[FILENAME_MAX];
-  auto result = GetCurrentDir(buff, FILENAME_MAX);
-  if (result) {
+
+  #ifdef __linux__ 
+    auto result = getcwd(buff, FILENAME_MAX);
+    if (result) {
     std::string current_working_dir(buff);
     return current_working_dir;
   }
+  #elif _WIN32
+    GetModuleFileName( NULL, buff, FILENAME_MAX );
+    string::size_type pos = string( buff ).find_last_of( "\\/" );
+    return string( buff ).substr( 0, pos);
+  #else
+
+  #endif
+
   return "";
 }
 
@@ -123,7 +140,7 @@ TEST_CASE("integrality-constraints", "[highs_filereader]") {
 
   // Read mps with fixed format parser.
   HighsLp lp_fixed;
-  options.parser_type = HighsMpsParserType::fixed;
+  options.mps_parser_type = HighsMpsParserType::fixed;
 
   HighsStatus read_status = loadLpFromFile(options, lp_fixed);
   REQUIRE(read_status == HighsStatus::OK);
@@ -132,7 +149,7 @@ TEST_CASE("integrality-constraints", "[highs_filereader]") {
 
   // Read mps with free format parser.
   HighsLp lp_free;
-  options.parser_type = HighsMpsParserType::free;
+  options.mps_parser_type = HighsMpsParserType::free;
 
   read_status = loadLpFromFile(options, lp_free);
   REQUIRE(read_status == HighsStatus::OK);

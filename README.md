@@ -68,9 +68,9 @@ Usage:
       --ipm arg              Use interior point method solver: off by
                              default.
       --parallel arg         Use parallel solve: off by default.
-      --time-limit arg       Use time limit.
-      --iteration-limit arg  Use iteration limit (integer).
-      --options-file arg     File containing HiGHS options.
+      --time_limit arg       Use time limit.
+      --iteration_limit arg  Use iteration limit (integer).
+      --options_file arg     File containing HiGHS options.
       --parser arg           Mps parser type: swap back to fixed format
                              parser.
   -h, --help                 Print help.
@@ -141,7 +141,7 @@ highs library. After running the code above compile and run with
 
 `g++ -o use_highs use_highs.cpp -I install_folder/include/ -L install_folder/lib/ -lhighs`
 
-`LD_LIBRARY_PATH=intstall_folder/lib/ ./use_highs`
+`LD_LIBRARY_PATH=install_folder/lib/ ./use_highs`
 
 Interfaces
 ----------
