@@ -19,7 +19,6 @@ set(sources
     mip/SolveMip.cpp
     presolve/Presolve.cpp
     presolve/HPreData.cpp
- #   simplex/HAPI.cpp
     simplex/HCrash.cpp
     simplex/HDual.cpp
     simplex/HDualRHS.cpp
@@ -40,7 +39,7 @@ set(sources
     util/HighsSort.cpp
     util/HighsUtils.cpp
     util/stringutil.cpp
-    interfaces/MinimalAPI.cpp
+    interfaces/highs_c_api.cpp
 )
 
 set(headers
@@ -95,6 +94,7 @@ set(headers
     util/HighsTimer.h
     util/HighsUtils.h
     Highs.h
+    interfaces/highs_c_api.h
 )
 
 if (GAMS_FOUND)

@@ -16,8 +16,8 @@
 
 #include "HConfig.h"
 #include "lp_data/HighsModelObject.h"
-#include "simplex/HVector.h"
 #include "simplex/HSimplex.h"
+#include "simplex/HVector.h"
 
 /**
  * @brief Phase 2 primal simplex solver for HiGHS
@@ -28,8 +28,12 @@
  */
 class HPrimal {
  public:
- HPrimal(HighsModelObject& model_object) : workHMO(model_object)
-   {  }
+  HPrimal(HighsModelObject& model_object) : workHMO(model_object) {}
+  /**
+   * @brief Solve a model instance
+   */
+  void solve();
+
   /**
    * @brief Perform Phase 2 primal simplex iterations
    */
@@ -41,22 +45,42 @@ class HPrimal {
   void primalChooseRow();
   void primalUpdate();
 
+  void iterationReport();
+  void iterationReportFull(bool header);
+  void iterationReportIterationAndPhase(int iterate_log_level, bool header);
+  void iterationReportPrimalObjective(int iterate_log_level, bool header);
+  void iterationReportIterationData(int iterate_log_level, bool header);
+  void iterationReportRebuild(const int i_v);
+  void reportInfeasibility(const int i_v);
+
   // Model pointer
-  HighsModelObject &workHMO;
-  
+  HighsModelObject& workHMO;
+
   int solver_num_col;
   int solver_num_row;
   int solver_num_tot;
 
+  bool no_free_columns;
+
+  int solvePhase;
+  int previous_iteration_report_header_iteration_count = -1;
   // Pivot related
   int invertHint;
   int columnIn;
   int rowOut;
+  int columnOut;
+  double thetaDual;
+  double thetaPrimal;
+  double alpha;
+  //  double alphaRow;
+  double numericalTrouble;
+  int num_flip_since_rebuild;
 
   // Solve buffer
   HVector row_ep;
   HVector row_ap;
   HVector column;
+
   double row_epDensity;
   double columnDensity;
 };

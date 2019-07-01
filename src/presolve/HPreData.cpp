@@ -8,15 +8,15 @@
 /*                                                                       */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /**@file presolve/HPreData.cpp
- * @brief 
+ * @brief
  * @author Julian Hall, Ivet Galabova, Qi Huangfu and Michael Feldmeier
  */
 #include "presolve/HPreData.h"
 #include "lp_data/HConst.h"
 
 using std::cout;
-using std::setw;
 using std::endl;
+using std::setw;
 
 HPreData::HPreData() {}
 
@@ -217,5 +217,3 @@ void HPreData::printAR(int i) {
   }
   cout << endl;
 }
-
-void HPreData::writeNewFormat(string fileName) {}

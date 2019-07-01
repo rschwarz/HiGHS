@@ -14,8 +14,8 @@
 
 #include "io/FilereaderLp.h"
 #include <stdarg.h>
-#include "util/stringutil.h"
 #include "lp_data/HConst.h"
+#include "util/stringutil.h"
 
 FilereaderLp::FilereaderLp() {
   this->isFileBufferFullyRead = true;
@@ -25,7 +25,7 @@ FilereaderLp::FilereaderLp() {
   this->status = LP_FILEREADER_STATUS::SUCCESS;
 }
 
-void __inline__ emptyTokenQueue(std::list<LpToken*>& list) {
+void emptyTokenQueue(std::list<LpToken*>& list) {
   while (list.size() > 0) {
     LpToken* token = list.front();
     list.pop_front();
@@ -485,10 +485,12 @@ LpSectionKeyword FilereaderLp::tryParseLongSectionKeyword(const char* str,
   int nread = sscanf(str, "%s %s%n", s1, s2, characters);
   if (nread == 2) {
     sprintf(s3, "%s %s", s1, s2);
-    if (strcmp(s3, LP_KEYWORD_ST[0]) == 0) {
+    char* s4 = strClone(s3);
+    strToLower(s4);
+    if (strcmp(s4, LP_KEYWORD_ST[0]) == 0) {
       return LpSectionKeyword::CON;
     }
-    if (strcmp(s3, LP_KEYWORD_ST[1]) == 0) {
+    if (strcmp(s4, LP_KEYWORD_ST[1]) == 0) {
       return LpSectionKeyword::CON;
     }
   }
@@ -920,7 +922,8 @@ FilereaderRetcode FilereaderLp::writeModelToFile(const char* filename,
   this->writeToFileLineend();
 
   // write objective
-  this->writeToFile("%s", model.sense_ == 1.0 ? LP_KEYWORD_MIN[0] : LP_KEYWORD_MAX[0]);
+  this->writeToFile(
+      "%s", model.sense_ == 1.0 ? LP_KEYWORD_MIN[0] : LP_KEYWORD_MAX[0]);
   this->writeToFileLineend();
   this->writeToFile(" obj: ");
   for (int i = 0; i < model.numCol_; i++) {
