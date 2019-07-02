@@ -7,9 +7,8 @@
 
 #include "io/HighsIO.h"
 #include "lp_data/HConst.h"
-#include "presolve/ExactSubproblem.h"
-#include "lp_data/HConst.h"
 #include "lp_data/HighsLpUtils.h"
+#include "presolve/ExactSubproblem.h"
 
 constexpr double kExitTolerance = 0.00000001;
 
@@ -133,7 +132,8 @@ void Quadratic::updateObjective() {
     objective_ += lp_.colCost_[col] * col_value_[col];
 }
 
-void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<double>& lambda) {
+void Quadratic::minimize_exact_with_lambda(const double mu,
+                                           const std::vector<double>& lambda) {
   double mu_penalty = 1.0 / mu;
   HighsLp lp = lp_;
   // Modify cost. See notebook ."lambda"
@@ -144,7 +144,7 @@ void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<do
   std::vector<double> atlambda = getAtLambda(lp, lambda);
   for (int col = 0; col < lp.colCost_.size(); col++)
     lp.colCost_[col] -= atlambda[col];
- 
+
   solve_exact(lp, mu_penalty, col_value_);
 
   update();
@@ -170,17 +170,14 @@ void Quadratic::minimize_by_component(const double mu,
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
 
-  HighsPrintMessage(ML_DESC,
-                    "Values at start: %3.2g, %3.4g, \n",
-                    objective_,
+  HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
 
   for (int iteration = 0; iteration < iterations; iteration++) {
     for (int col = 0; col < lp_.numCol_; col++) {
       // determine whether to minimize for col.
-      // if empty skip. 
-      if (lp_.Astart_[col] == lp_.Astart_[col+1])
-        continue;
+      // if empty skip.
+      if (lp_.Astart_[col] == lp_.Astart_[col + 1]) continue;
       // todo: add slope calculation.
 
       // Minimize quadratic for column col.
@@ -295,6 +292,11 @@ HighsStatus initialize(const HighsLp& lp, HighsSolution& solution, double& mu,
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
                            const MinimizationType type) {
   if (!isEqualityProblem(lp)) return HighsStatus::NotImplemented;
+  if (type == MinimizationType::kExactAdmm) return HighsStatus::NotImplemented;
+  if (type == MinimizationType::kComponentWiseAdmm)
+    return HighsStatus::NotImplemented;
+  if (type == MinimizationType::kComponentWisePenalty)
+    return HighsStatus::NotImplemented;
 
   if (lp.sense_ != OBJSENSE_MINIMIZE) {
     HighsPrintMessage(
@@ -317,7 +319,8 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
     HighsPrintMessage(ML_ALWAYS,
                       "Minimizing quadratic subproblem component-wise...\n");
   else if (type == MinimizationType::kExact)
-    HighsPrintMessage(ML_ALWAYS, "Minimizing quadratic subproblem exactly...\n");
+    HighsPrintMessage(ML_ALWAYS,
+                      "Minimizing quadratic subproblem exactly...\n");
 
   // Report values at start.
   std::stringstream ss;
@@ -341,20 +344,35 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
-    if (type == MinimizationType::kComponentWise)
-      quadratic.minimize_by_component(mu, lambda);
-    else if (type == MinimizationType::kExact)
-      quadratic.minimize_exact_with_lambda(mu, lambda);
-    else if (type == MinimizationType::kExactPenalty)
-      quadratic.minimize_exact_penalty(mu);
+    switch (type) {
+      case MinimizationType::kComponentWise:
+        quadratic.minimize_by_component(mu, lambda);
+        break;
+      case MinimizationType::kExact:
+        quadratic.minimize_exact_with_lambda(mu, lambda);
+        break;
+      case MinimizationType::kExactPenalty:
+        quadratic.minimize_exact_penalty(mu);
+        break;
+    }
 
     // Report outcome.
     residual_norm_2 = quadratic.getResidualNorm2();
     ss.str(std::string());
-    ss << "Iteration " << std::setw(3) << iteration << ": objective "
-       << std::setw(3) << std::fixed << std::setprecision(2)
-       << quadratic.getObjective() << " residual " << std::setw(5)
-       << std::scientific << residual_norm_2 << std::endl;
+    bool details = true;
+    if (!details) {
+      ss << "Iteration " << std::setw(3) << iteration << ": objective "
+         << std::setw(3) << std::fixed << std::setprecision(2)
+         << quadratic.getObjective() << " residual " << std::setw(5)
+         << std::scientific << residual_norm_2 << std::endl;
+    } else {
+      // todo: after merge with ff-breakpoints
+      // or before and replace code there
+      // double quad_value = calculateQuadraticValue(A,L,U,x,residual_type);
+      ss << "Iter " << std::setw(3) << iteration << ", c'x "
+         << std::setprecision(5) << quadratic.getObjective() << ", res "
+         << residual_norm_2 << std::endl;
+    }
     HighsPrintMessage(ML_ALWAYS, ss.str().c_str());
 
     // Exit if feasible.
@@ -379,12 +397,13 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
                     "\nSolution set at the end of feasibility search.\n");
 
   // Using ss again instead of ss_str messes up HighsIO.
+  assert(calculateObjective(lp, solution) == quadratic.getObjective());
   std::stringstream ss_str;
-  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration
-         << ", quadratic_objective, " << std::setw(3) << std::fixed
-         << std::setprecision(2) << quadratic.getObjective() << ", c'x, "
-         << calculateObjective(lp, solution) << " ,residual, " << std::setw(5)
-         << std::scientific << residual_norm_2 << "," << std::endl;
+  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", c'x, "
+         << calculateObjective(lp, solution) << " , quadratic_objective, "
+         << std::setw(3) << std::fixed << std::setprecision(2) << "todo calcQV"
+         << ",residual, " << std::setw(5) << std::scientific << residual_norm_2
+         << "," << std::endl;
   HighsPrintMessage(ML_ALWAYS, ss_str.str().c_str());
 
   return HighsStatus::OK;
