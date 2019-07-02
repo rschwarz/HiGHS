@@ -107,18 +107,30 @@ HighsStatus Highs::run() {
       }
       initializeLp(primal);
     }
-
-    if (options_.feasibility_strategy ==
-        FeasibilityStrategy::kApproxComponentWise)
-      return runFeasibility(lp_, solution_, MinimizationType::kComponentWise);
-    else if (options_.feasibility_strategy == FeasibilityStrategy::kApproxExact)
-      return runFeasibility(lp_, solution_, MinimizationType::kExact);
-    else if (options_.feasibility_strategy ==
-             FeasibilityStrategy::kDirectSolve) {
+    
+    switch (options_.feasibility_strategy) {
+      case FeasibilityStrategy::kComponentWise:
+        return runFeasibility(lp_, solution_, MinimizationType::kComponentWise);
+        break;
+      case FeasibilityStrategy::kExact: {
+      switch(options_.feasibility_update_type) {
+        case  FeasibilityUpdateType::kPenalty:
+          return runFeasibility(lp_, solution_, MinimizationType::kExactPenalty);
+          break;
+        case  FeasibilityUpdateType::kStandard:
+          return runFeasibility(lp_, solution_, MinimizationType::kExact);
+          break;
+        case  FeasibilityUpdateType::kAdmm:
+          return runFeasibility(lp_, solution_, MinimizationType::kExactAdmm);
+          break;
+      }
+    }
+    case FeasibilityStrategy::kDirectSolve: {
       // Proceed to normal exection of run().
       // If dualize has been called replace LP is replaced with dual in code
       // above.
-    }
+      break;
+    } }
   }
 
   // Return immediately if the LP has no columns

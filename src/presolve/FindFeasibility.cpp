@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "io/HighsIO.h"
+#include "lp_data/HConst.h"
 #include "presolve/ExactSubproblem.h"
 #include "lp_data/HConst.h"
 #include "lp_data/HighsLpUtils.h"
@@ -71,6 +72,8 @@ class Quadratic {
                              const std::vector<double>& lambda);
 
   void minimize_exact_penalty(const double mu);
+  void minimize_exact_with_lambda(const double mu,
+                                  const std::vector<double>& lambda);
 
  private:
   const HighsLp& lp_;
@@ -130,11 +133,31 @@ void Quadratic::updateObjective() {
     objective_ += lp_.colCost_[col] * col_value_[col];
 }
 
+void Quadratic::minimize_exact_with_lambda(const double mu, const std::vector<double>& lambda) {
+  double mu_penalty = 1.0 / mu;
+  HighsLp lp = lp_;
+  // Modify cost. See notebook ."lambda"
+  // projected_gradient_c = c - 1/mu*(A'b) - A'\lambda
+  // First part taken into consideration in projected gradient.
+
+  std::vector<double> atb = getAtb(lp);
+  std::vector<double> atlambda = getAtLambda(lp, lambda);
+  for (int col = 0; col < lp.colCost_.size(); col++)
+    lp.colCost_[col] -= atlambda[col];
+ 
+  solve_exact(lp, mu_penalty, col_value_);
+
+  update();
+}
+
 void Quadratic::minimize_exact_penalty(const double mu) {
   double mu_penalty = 1.0 / mu;
-  const HighsLp& lp_ref = lp_;
+  HighsLp lp = lp_;
+  // Modify cost. See notebook ."no lambda"
+  // projected_gradient_c = c - 1/mu*(A'b)
+  // First part taken into consideration in projected gradient.
 
-  solve_exact(lp_ref, mu_penalty, col_value_);
+  solve_exact(lp, mu_penalty, col_value_);
 
   update();
 }
@@ -147,11 +170,17 @@ void Quadratic::minimize_by_component(const double mu,
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
 
+  HighsPrintMessage(ML_DESC,
+                    "Values at start: %3.2g, %3.4g, \n",
+                    objective_,
+                    residual_norm_2_);
+
   for (int iteration = 0; iteration < iterations; iteration++) {
     for (int col = 0; col < lp_.numCol_; col++) {
       // determine whether to minimize for col.
-      // if empty skip.
-      if (lp_.Astart_[col] == lp_.Astart_[col + 1]) continue;
+      // if empty skip. 
+      if (lp_.Astart_[col] == lp_.Astart_[col+1])
+        continue;
       // todo: add slope calculation.
 
       // Minimize quadratic for column col.
@@ -308,13 +337,15 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   }
 
   // Minimize approximately for K iterations.
-  int K = 30;
+  int K = 200;
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
     if (type == MinimizationType::kComponentWise)
       quadratic.minimize_by_component(mu, lambda);
     else if (type == MinimizationType::kExact)
+      quadratic.minimize_exact_with_lambda(mu, lambda);
+    else if (type == MinimizationType::kExactPenalty)
       quadratic.minimize_exact_penalty(mu);
 
     // Report outcome.

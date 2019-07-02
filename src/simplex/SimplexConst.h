@@ -106,9 +106,15 @@ enum InvertHint {
 // phase 2
 const bool invert_if_row_out_negative = true;
 
+enum class FeasibilityUpdateType {
+  kStandard, // ICA
+  kPenalty,
+  kAdmm
+};
+
 enum class FeasibilityStrategy {
-  kApproxComponentWise,
-  kApproxExact,
+  kComponentWise,
+  kExact,
   kDirectSolve
 };
 

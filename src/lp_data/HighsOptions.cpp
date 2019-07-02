@@ -52,6 +52,9 @@ OptionStatus setOptionValue(HighsOptions& options, const std::string& option,
   else if (option == find_feasibility_dualize_string)
     return setFindFeasibilityDualizeValue(options, value);
 
+  else if (option == find_feasibility_update_type_string)
+    return setFindFeasibilityUpdateTypeValue(options, value);
+
   else if (option == infinite_cost_string)
     return setInfiniteCostValue(options, atof(value.c_str()));
 
@@ -141,11 +144,15 @@ void reportStringOptionValue(const int report_level, const string option_string,
   bool is_default = option_value == option_default;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"%s\"\n",
-		      option_string.c_str(), option_default.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"%s\"\n",
+                      option_string.c_str(), option_default.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has %s value \"%s\": default value is \"%s\"",
-		      option_string.c_str(), default_space.c_str(), option_value.c_str(), option_default.c_str());
+      HighsLogMessage(
+          HighsMessageType::INFO,
+          "Option: %-32s has %s value \"%s\": default value is \"%s\"",
+          option_string.c_str(), default_space.c_str(), option_value.c_str(),
+          option_default.c_str());
     }
   }
 }
@@ -243,43 +250,56 @@ void reportOptionsValue(const HighsOptions& options, const int report_level) {
   is_default = options.presolve_option == PresolveOption::DEFAULT;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"off\"",
-             presolve_string.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"off\"",
+                      presolve_string.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has%s value \"on\": default value is \"off\"",
-	     presolve_string.c_str(), default_space.c_str());
+      HighsLogMessage(
+          HighsMessageType::INFO,
+          "Option: %-32s has%s value \"on\": default value is \"off\"",
+          presolve_string.c_str(), default_space.c_str());
     }
   }
   // Crash option
   is_default = options.crash_option == CrashOption::DEFAULT;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"off\"", crash_string.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"off\"",
+                      crash_string.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has%s value \"on\": default value is \"off\"",
-	     crash_string.c_str(), default_space.c_str());
+      HighsLogMessage(
+          HighsMessageType::INFO,
+          "Option: %-32s has%s value \"on\": default value is \"off\"",
+          crash_string.c_str(), default_space.c_str());
     }
   }
   // Parallel option
   is_default = options.parallel_option == ParallelOption::DEFAULT;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"off\"",
-             parallel_string.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"off\"",
+                      parallel_string.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has%s value \"on\": default value is \"off\"",
-	     parallel_string.c_str(), default_space.c_str());
+      HighsLogMessage(
+          HighsMessageType::INFO,
+          "Option: %-32s has%s value \"on\": default value is \"off\"",
+          parallel_string.c_str(), default_space.c_str());
     }
   }
   // Simplex option
   is_default = options.simplex_option == SimplexOption::DEFAULT;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"off\"",
-             simplex_string.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"off\"",
+                      simplex_string.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has%s value \"on\": default value is \"off\"",
-	     simplex_string.c_str(), default_space.c_str());
+      HighsLogMessage(
+          HighsMessageType::INFO,
+          "Option: %-32s has%s value \"on\": default value is \"off\"",
+          simplex_string.c_str(), default_space.c_str());
     }
   }
   // Ipx option ToDo This is a mess name-wise and should use
@@ -287,11 +307,14 @@ void reportOptionsValue(const HighsOptions& options, const int report_level) {
   is_default = options.ipx == false;
   if (!is_default || report_level) {
     if (is_default) {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has default value \"false\"", ipm_string.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has default value \"false\"",
+                      ipm_string.c_str());
     } else {
-      HighsLogMessage(HighsMessageType::INFO, "Option: %-32s has%s value \"true\": default value is "
-	     "\"false\"",
-	     ipm_string.c_str(), default_space.c_str());
+      HighsLogMessage(HighsMessageType::INFO,
+                      "Option: %-32s has%s value \"true\": default value is "
+                      "\"false\"",
+                      ipm_string.c_str(), default_space.c_str());
     }
   }
   // HiGHS run time limit
@@ -520,10 +543,10 @@ OptionStatus setFindFeasibilityValue(HighsOptions& options,
 
 OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
                                              const std::string& value) {
-  if (value == "approx_component")
-    options.feasibility_strategy = FeasibilityStrategy::kApproxComponentWise;
-  else if (value == "approx_exact")
-    options.feasibility_strategy = FeasibilityStrategy::kApproxExact;
+  if (value == "component_wise")
+    options.feasibility_strategy = FeasibilityStrategy::kComponentWise;
+  else if (value == "exact")
+    options.feasibility_strategy = FeasibilityStrategy::kExact;
   else if (value == "direct")
     options.feasibility_strategy = FeasibilityStrategy::kDirectSolve;
   else {
@@ -542,6 +565,24 @@ OptionStatus setFindFeasibilityDualizeValue(HighsOptions& options,
     options.feasibility_strategy_dualize = true;
   else if (value == "off" || value == "false")
     options.feasibility_strategy_dualize = false;
+  else {
+    HighsLogMessage(HighsMessageType::ERROR,
+                    "feasibility dualize value \"%s\" is not permitted: legal "
+                    "values are \"%s\" and \"%s\"\n",
+                    value.c_str(), "on", "off");
+    return OptionStatus::ILLEGAL_VALUE;
+  }
+  return OptionStatus::OK;
+}
+
+OptionStatus setFindFeasibilityUpdateTypeValue(HighsOptions& options,
+                                          const std::string& value) {
+  if (value == "standard")
+    options.feasibility_update_type = FeasibilityUpdateType::kStandard;
+  else if (value == "penalty")
+    options.feasibility_update_type = FeasibilityUpdateType::kPenalty;
+  else if (value == "admm" || value == "ADMM")
+    options.feasibility_update_type = FeasibilityUpdateType::kAdmm;
   else {
     HighsLogMessage(HighsMessageType::ERROR,
                     "feasibility dualize value \"%s\" is not permitted: legal "

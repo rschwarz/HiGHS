@@ -45,6 +45,7 @@ const string mip_string = "mip";
 const string find_feasibility_string = "find_feasibility";
 const string find_feasibility_strategy_string = "feasibility_strategy";
 const string find_feasibility_dualize_string = "feasibility_dualize";
+const string find_feasibility_update_type_string = "feasibility_update_type";
 
 // Strings for file options
 const string infinite_cost_string = "infinite_cost";
@@ -157,8 +158,10 @@ struct HighsOptions {
 
   bool find_feasibility = false;
   FeasibilityStrategy feasibility_strategy =
-      FeasibilityStrategy::kApproxComponentWise;
+      FeasibilityStrategy::kComponentWise;
   bool feasibility_strategy_dualize = false;
+  FeasibilityUpdateType feasibility_update_type =
+      FeasibilityUpdateType::kStandard;
 
   bool mip = false;
 };
@@ -190,6 +193,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
                                              const std::string& value);
 OptionStatus setFindFeasibilityDualizeValue(HighsOptions& options,
                                             const std::string& value);
+OptionStatus setFindFeasibilityUpdateTypeValue(HighsOptions& options,
+                                          const std::string& value);
 
 OptionStatus setDualiseSimplexLpValue(HighsOptions& options, const int& value);
 OptionStatus setPermuteSimplexLpValue(HighsOptions& options, const int& value);

@@ -37,7 +37,6 @@ class Highs {
     if (status != OptionStatus::OK) return HighsStatus::OK;
     return HighsStatus::Error;
   }
-
   /**
    * @brief Clears the vector of HighsModelObjects (hmos), creates a
    * HighsModelObject for this LP and makes it the first of the vector
