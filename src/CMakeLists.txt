@@ -8,6 +8,7 @@ set(sources
     io/HighsIO.cpp
     io/HMPSIO.cpp
     io/HToyIO.cpp
+    io/LoadProblem.cpp
     lp_data/Highs.cpp
     lp_data/HighsLp.cpp
     lp_data/HighsLpUtils.cpp

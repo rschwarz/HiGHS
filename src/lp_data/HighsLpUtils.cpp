@@ -1922,7 +1922,26 @@ HighsStatus calculateRowValues(const HighsLp& lp, HighsSolution& solution) {
   return HighsStatus::OK;
 }
 
-double calculateObjective(const HighsLp& lp, HighsSolution& solution) {
+HighsStatus calculateResidual(const HighsLp& lp, HighsSolution& solution,
+                              std::vector<double> residual) {
+  HighsStatus status = calculateRowValues(lp, solution);
+  if (status != HighsStatus::OK) return status;
+
+  residual.clear();
+  residual.resize(lp.numRow_);
+
+  for (int row = 0; row < lp.numRow_; row++) {
+    if (solution.row_value[row] < lp.rowLower_[row]) {
+      residual[row] = lp.rowLower_[row] - solution.row_value[row];
+    } else if (solution.row_value[row] > lp.rowUpper_[row]) {
+      residual[row] += solution.row_value[row] - lp.rowUpper_[row];
+    }
+  }
+
+  return status;
+}
+
+double calculateObjective(const HighsLp& lp, const HighsSolution& solution) {
   assert(isSolutionConsistent(lp, solution));
   double sum = 0;
   for (int col = 0; col < lp.numCol_; col++)

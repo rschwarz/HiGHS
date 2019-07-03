@@ -372,11 +372,10 @@ const HighsSolution& Highs::getSolution() const { return solution_; }
 const HighsBasis& Highs::getBasis() const { return basis_; }
 
 double Highs::getObjectiveValue() const {
-  if (hmos_.size() > 0) {
+  if (simplex_has_run_) {
     return hmos_[0].simplex_info_.dual_objective_value;
   } else {
-    // todo: ipx case
-    // todo: error/warning message
+    return calculateObjective(lp_, solution_);
   }
   return 0;
 }

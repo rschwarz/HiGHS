@@ -20,6 +20,12 @@
 #include <cmath>
 #include <vector>
 
+double getNorm2(const std::vector<double> values) {
+  double sum = 0;
+  for (int i = 0; i < values.size(); i++) sum += values[i] * values[i];
+  return sum;
+}
+
 bool highs_isInfinity(double val) {
   if (val >= HIGHS_CONST_INF) return true;
   return false;

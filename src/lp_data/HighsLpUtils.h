@@ -21,6 +21,8 @@
 
 class HighsLp;
 
+enum class ResidualFunctionType { kLinearised, kPiecewise };
+
 // Methods taking HighsLp as an argument
 HighsStatus checkLp(const HighsLp& lp);
 
@@ -255,7 +257,10 @@ HighsBasis getSimplexBasis(const HighsLp& lp, const SimplexBasis& basis);
 
 HighsStatus calculateRowValues(const HighsLp& lp, HighsSolution& solution);
 HighsStatus calculateColDuals(const HighsLp& lp, HighsSolution& solution);
-double calculateObjective(const HighsLp& lp, HighsSolution& solution);
+double calculateObjective(const HighsLp& lp, const HighsSolution& solution);
+
+// calls calculateRowValues(lp, solution);
+HighsStatus calculateResidual(const HighsLp& lp, HighsSolution& solution, std::vector<double> residual);
 
 HighsStatus assessIntervalSetMask(const int max_ix, const bool interval,
                                   const int from_ix, const int to_ix,

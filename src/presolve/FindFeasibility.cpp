@@ -43,8 +43,6 @@ std::vector<double> getAtLambda(const HighsLp& lp,
   return atl;
 }
 
-enum class ResidualFunctionType { kLinearised, kPiecewise };
-
 class Quadratic {
  public:
   Quadratic(const HighsLp& lp, std::vector<double>& primal_values,
@@ -123,6 +121,8 @@ void Quadratic::updateRowValue() {
     }
   }
 }
+
+
 
 void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
   residual_.clear();

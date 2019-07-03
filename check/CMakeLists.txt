@@ -15,7 +15,9 @@ set(TEST_SOURCES
     TestSort.cpp
     TestLpValidation.cpp
     TestLpModification.cpp
+    TestInstanceLoad.cpp
     TestSetup.cpp
+    TestPresolve.cpp
     Avgas.cpp)
 
 add_executable(unit_tests ${TEST_SOURCES})
@@ -120,6 +122,11 @@ endif (GAMS_FOUND)
 # Run instance tests.
 #
 # define the set of feasible instances
+set(qaps
+    "qap04\;32\;"
+    "qap08\;203.5\;"
+    )
+
 set(successInstances
     "25fv47\;2888\;5.50184\;"
     "80bau3b\;3760\;9.872242\;"
