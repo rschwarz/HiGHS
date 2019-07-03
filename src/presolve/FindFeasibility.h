@@ -8,9 +8,10 @@ enum class MinimizationType {
   kComponentWise,
   kComponentWisePenalty,
   kComponentWiseAdmm,
+  kComponentWiseBreakpoints,
   kExact,
   kExactPenalty,
-  kExactAdmm,
+  kExactAdmm
 };
 
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,

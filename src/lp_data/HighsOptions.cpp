@@ -545,6 +545,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
                                              const std::string& value) {
   if (value == "component_wise")
     options.feasibility_strategy = FeasibilityStrategy::kComponentWise;
+  if (value == "breakpoints")
+    options.feasibility_strategy = FeasibilityStrategy::kComponentWiseBreakpoints;
   else if (value == "exact")
     options.feasibility_strategy = FeasibilityStrategy::kExact;
   else if (value == "direct")

@@ -93,24 +93,38 @@ HighsStatus Highs::run() {
 
     // Add slacks and make sure a minimization problem is passed to
     // runFeasibility.
-    HighsLp primal = transformIntoEqualityProblem(lp_);
-    if (options_.feasibility_strategy_dualize) {
-      // Add slacks & dualize.
-      HighsLp dual = dualizeEqualityProblem(primal);
-      // dualizeEqualityProblem returns a minimization problem.
-      initializeLp(dual);
+    if (options_.feasibility_strategy !=
+        FeasibilityStrategy::kComponentWiseBreakpoints) {
+      HighsLp primal = transformIntoEqualityProblem(lp_);
+      if (options_.feasibility_strategy_dualize) {
+        // Add slacks & dualize.
+        HighsLp dual = dualizeEqualityProblem(primal);
+        // dualizeEqualityProblem returns a minimization problem.
+        initializeLp(dual);
+      } else {
+        // If maximization, minimize before calling runFeasibility.
+        if (primal.sense_ != OBJSENSE_MINIMIZE) {
+          for (int col = 0; col < primal.numCol_; col++)
+            primal.colCost_[col] = -primal.colCost_[col];
+        }
+        initializeLp(primal);
+      }
     } else {
       // If maximization, minimize before calling runFeasibility.
-      if (primal.sense_ != OBJSENSE_MINIMIZE) {
-        for (int col = 0; col < primal.numCol_; col++)
-          primal.colCost_[col] = -primal.colCost_[col];
+      HighsLp lp = lp_;
+      if (lp.sense_ != OBJSENSE_MINIMIZE) {
+        for (int col = 0; col < lp.numCol_; col++)
+          lp.colCost_[col] = -lp.colCost_[col];
       }
-      initializeLp(primal);
+      initializeLp(lp);
     }
     
     switch (options_.feasibility_strategy) {
       case FeasibilityStrategy::kComponentWise:
         return runFeasibility(lp_, solution_, MinimizationType::kComponentWise);
+        break;
+      case FeasibilityStrategy::kComponentWiseBreakpoints:
+        return runFeasibility(lp_, solution_, MinimizationType::kComponentWiseBreakpoints);
         break;
       case FeasibilityStrategy::kExact: {
       switch(options_.feasibility_update_type) {

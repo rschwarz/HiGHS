@@ -114,6 +114,7 @@ enum class FeasibilityUpdateType {
 
 enum class FeasibilityStrategy {
   kComponentWise,
+  kComponentWiseBreakpoints,
   kExact,
   kDirectSolve
 };
