@@ -230,8 +230,11 @@ void Quadratic::minimize_exact_penalty(const double mu) {
 
 void Quadratic::minimize_component_quadratic_linearisation(
     const int col, const double mu, const std::vector<double>& lambda) {
-  double current =
-      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
+  // todo: see again when you refactor caclQV out of there
+  // is this why ff became so slow? no, but the same call was done for each
+  // component update below and that was the reason.
+  // double current =
+  //     calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
 
   // Minimize quadratic for column col.
 
@@ -275,9 +278,6 @@ void Quadratic::minimize_component_quadratic_linearisation(
   //   delta_x = std::max(theta, lp_.colLower_[col] - col_value_[col]);
 
   col_value_[col] += delta_x;
-
-  double new_quadratic_objective =
-      calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
 
   // std::cout << "col " << col << ": " << delta_x << std::endl;
 
@@ -352,7 +352,8 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   // for (auto it = breakpoints.begin(); it < end; it++) {
   //   col_value_[col] = col_save + *it;
   //   double min =
-  //       calculateQuadraticValue(mu, lambda, ResidualFunctionType::kPiecewise);
+  //       calculateQuadraticValue(mu, lambda,
+  //       ResidualFunctionType::kPiecewise);
 
   //   if (min < min_quadratic_value_i) {
   //     min_quadratic_value_i = min;
@@ -373,10 +374,9 @@ double Quadratic::findBreakpoints(const int col, const double mu,
 
   // if (current < min_quadratic_value_i) return 0;
 
-  // // Minimize both quadratics and save min theta's in delta_lhs and delta_rhs.
-  // double delta_lhs = 0;
-  // double delta_mhs = 0;
-  // double delta_rhs = 0;
+  // // Minimize both quadratics and save min theta's in delta_lhs and
+  // delta_rhs. double delta_lhs = 0; double delta_mhs = 0; double delta_rhs =
+  // 0;
 
   // // minimize quadratic ,_,
   // if (min_x_update_it_i != min_x_update_it_ii) {
@@ -605,7 +605,8 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
           ? ResidualFunctionType::kLinearised
           : ResidualFunctionType::kPiecewise;
 
-  if (residual_type != ResidualFunctionType::kPiecewise && !isEqualityProblem(lp))
+  if (residual_type != ResidualFunctionType::kPiecewise &&
+      !isEqualityProblem(lp))
     return HighsStatus::NotImplemented;
 
   if (lp.sense_ != OBJSENSE_MINIMIZE) {
