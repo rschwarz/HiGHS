@@ -651,7 +651,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   }
 
   // Minimize approximately for K iterations.
-  int K = 10;
+  int K = 30;
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
