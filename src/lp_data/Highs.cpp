@@ -121,21 +121,21 @@ HighsStatus Highs::run() {
     
     switch (options_.feasibility_strategy) {
       case FeasibilityStrategy::kComponentWise:
-        return runFeasibility(lp_, solution_, MinimizationType::kComponentWise);
+        return runFeasibility(lp_, solution_, MinimizationType::kComponentWise, options_.feasibility_initial_weight);
         break;
       case FeasibilityStrategy::kComponentWiseBreakpoints:
-        return runFeasibility(lp_, solution_, MinimizationType::kComponentWiseBreakpoints);
+        return runFeasibility(lp_, solution_, MinimizationType::kComponentWiseBreakpoints, options_.feasibility_initial_weight);
         break;
       case FeasibilityStrategy::kExact: {
       switch(options_.feasibility_update_type) {
         case  FeasibilityUpdateType::kPenalty:
-          return runFeasibility(lp_, solution_, MinimizationType::kExactPenalty);
+          return runFeasibility(lp_, solution_, MinimizationType::kExactPenalty, options_.feasibility_initial_weight);
           break;
         case  FeasibilityUpdateType::kStandard:
-          return runFeasibility(lp_, solution_, MinimizationType::kExact);
+          return runFeasibility(lp_, solution_, MinimizationType::kExact, options_.feasibility_initial_weight);
           break;
         case  FeasibilityUpdateType::kAdmm:
-          return runFeasibility(lp_, solution_, MinimizationType::kExactAdmm);
+          return runFeasibility(lp_, solution_, MinimizationType::kExactAdmm, options_.feasibility_initial_weight);
           break;
       }
     }
