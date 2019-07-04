@@ -562,7 +562,7 @@ void Quadratic::minimize_by_component(
     const double mu, const std::vector<double>& lambda,
     const ResidualFunctionType quadratic_type) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
-  int iterations = 3;
+  int iterations = 100;
 
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
@@ -601,7 +601,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   // same result.
 
   ResidualFunctionType residual_type =
-      (type == MinimizationType::kComponentWiseBreakpoints)
+      (type != MinimizationType::kComponentWiseBreakpoints)
           ? ResidualFunctionType::kLinearised
           : ResidualFunctionType::kPiecewise;
 
@@ -651,7 +651,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   }
 
   // Minimize approximately for K iterations.
-  int K = 5;
+  int K = 10;
   int iteration = 0;
   for (iteration = 1; iteration < K + 1; iteration++) {
     // Minimize quadratic function.
@@ -675,7 +675,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
     // Report outcome.
     residual_norm_2 = quadratic.getResidualNorm2();
     ss.str(std::string());
-    bool details = true;
+    bool details = false;
     if (!details) {
       ss << "Iteration " << std::setw(3) << iteration << ": objective "
          << std::setw(3) << std::fixed << std::setprecision(2)

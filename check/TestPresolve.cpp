@@ -64,8 +64,8 @@ TEST_CASE("ff-qap04", "[highs_presolve") {
   std::string dir = GetCurrentWorkingDir();
 
   // For debugging use the latter.
-  // options.filename = dir + "/../../check/qap04";
-   options.filename = dir + "/check/qap04";
+  // options.filename = dir + "/../../instances/check/qap04.mps";
+  options.filename = dir + "/check/instances/qap04.mps";
 
   HighsLp lp;
   HighsStatus read_status = loadLpFromFile(options, lp);
