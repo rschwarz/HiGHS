@@ -139,9 +139,9 @@ class Quadratic {
   void update(
       ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 
-  double calculateQuadraticValue(const double mu,
-                                 const std::vector<double> lambda,
-                                 ResidualFunctionType type);
+  // double calculateQuadraticValue(const double mu,
+  //                                const std::vector<double> lambda,
+  //                                ResidualFunctionType type);
   double findBreakpoints(const int col, const double mu,
                          const std::vector<double> lambda);
 };
@@ -328,28 +328,28 @@ double Quadratic::minimize_component_quadratic_linearisation(
   return delta_x;
 }
 
-// Returns c'x + lambda'x + 1/2mu r'r
-double Quadratic::calculateQuadraticValue(const double mu,
-                                          const std::vector<double> lambda,
-                                          ResidualFunctionType type) {
-  update(type);
+// // Returns c'x + lambda'x + 1/2mu r'r
+// double Quadratic::calculateQuadraticValue(const double mu,
+//                                           const std::vector<double> lambda,
+//                                           ResidualFunctionType type) {
+//   update(type);
 
-  // c'x
-  double quadratic = getObjective();
+//   // c'x
+//   double quadratic = getObjective();
 
-  // lambda'x
-  for (int row = 0; row < lp_.numRow_; row++) {
-    if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >= 0);
-    quadratic += lambda[row] * residual_[row];
-  }
+//   // lambda'x
+//   for (int row = 0; row < lp_.numRow_; row++) {
+//     if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >= 0);
+//     quadratic += lambda[row] * residual_[row];
+//   }
 
-  // 1/2mu r'r
-  for (int row = 0; row < lp_.numRow_; row++) {
-    quadratic += (residual_[row] * residual_[row]) / mu;
-  }
+//   // 1/2mu r'r
+//   for (int row = 0; row < lp_.numRow_; row++) {
+//     quadratic += (residual_[row] * residual_[row]) / mu;
+//   }
 
-  return quadratic;
-}
+//   return quadratic;
+// }
 
 double Quadratic::findBreakpoints(const int col, const double mu,
                                   const std::vector<double> lambda) {
