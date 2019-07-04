@@ -1923,7 +1923,7 @@ HighsStatus calculateRowValues(const HighsLp& lp, HighsSolution& solution) {
 }
 
 HighsStatus calculateResidual(const HighsLp& lp, HighsSolution& solution,
-                              std::vector<double> residual) {
+                              std::vector<double>& residual) {
   HighsStatus status = calculateRowValues(lp, solution);
   if (status != HighsStatus::OK) return status;
 

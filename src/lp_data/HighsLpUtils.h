@@ -260,7 +260,8 @@ HighsStatus calculateColDuals(const HighsLp& lp, HighsSolution& solution);
 double calculateObjective(const HighsLp& lp, const HighsSolution& solution);
 
 // calls calculateRowValues(lp, solution);
-HighsStatus calculateResidual(const HighsLp& lp, HighsSolution& solution, std::vector<double> residual);
+HighsStatus calculateResidual(const HighsLp& lp, HighsSolution& solution,
+                              std::vector<double>& residual);
 
 HighsStatus assessIntervalSetMask(const int max_ix, const bool interval,
                                   const int from_ix, const int to_ix,

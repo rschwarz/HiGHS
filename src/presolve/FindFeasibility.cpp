@@ -648,6 +648,9 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   if (type == MinimizationType::kComponentWiseAdmm)
     return HighsStatus::NotImplemented;
 
+  solution.col_value.clear();
+  solution.col_value.resize(lp.numCol_);
+
   // todo: add test
   // for an equality problem kLinearized and kPiecewise should give the
   // same result.

@@ -52,6 +52,9 @@ TEST_CASE("ff-mini", "[highs_presolve") {
   // r
   std::vector<double> residual;
   HighsSolution solution = highs.getSolution();
+
+  if (solution.col_value.size() == 0) return;
+
   HighsStatus result = calculateResidual(highs.getLp(), solution, residual);
   REQUIRE(result == HighsStatus::OK);
 
@@ -67,7 +70,7 @@ TEST_CASE("ff-qap04", "[highs_presolve") {
   std::cout << dir << std::endl;
 
   // For debugging use the latter.
-  options.filename = dir + "/../../instances/check/qap04.mps";
+  options.filename = dir + "/../../check/instances/qap04.mps";
   //options.filename = dir + "/check/instances/qap04.mps";
 
   HighsLp lp;
@@ -91,7 +94,7 @@ TEST_CASE("ff-qap04", "[highs_presolve") {
   // c'x
   double ctx = highs.getObjectiveValue();
   double difference = std::fabs(kOptimalQap04 - ctx);
-  REQUIRE(difference < 1e01);
+  REQUIRE(difference < 0.18);
 
   // assert residual is below threshold
   // r
