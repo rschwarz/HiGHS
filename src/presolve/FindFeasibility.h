@@ -15,6 +15,6 @@ enum class MinimizationType {
 };
 
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
-                           const MinimizationType type);
+                           const MinimizationType type, const double initial_weight);
 
 #endif

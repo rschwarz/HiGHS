@@ -12,6 +12,9 @@
  * @author Julian Hall, Ivet Galabova, Qi Huangfu and Michael Feldmeier
  */
 #include "lp_data/HighsOptions.h"
+
+#include <sstream>
+
 #include "io/HighsIO.h"
 
 OptionStatus setOptionValue(HighsOptions& options, const std::string& option,
@@ -546,7 +549,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
   if (value == "component_wise")
     options.feasibility_strategy = FeasibilityStrategy::kComponentWise;
   if (value == "breakpoints")
-    options.feasibility_strategy = FeasibilityStrategy::kComponentWiseBreakpoints;
+    options.feasibility_strategy =
+        FeasibilityStrategy::kComponentWiseBreakpoints;
   else if (value == "exact")
     options.feasibility_strategy = FeasibilityStrategy::kExact;
   else if (value == "direct")
@@ -554,8 +558,8 @@ OptionStatus setFindFeasibilityStrategyValue(HighsOptions& options,
   else {
     HighsLogMessage(HighsMessageType::ERROR,
                     "feasibility component-wise value \"%s\" is not permitted: "
-                    "legal values are \"%s\" and \"%s\"\n",
-                    value.c_str(), "on", "off");
+                    "legal values are \"%s\", \"%s\", \"%s\" and \"%s\"\n",
+                    value.c_str(), "component_wise", "breakpoints", "exact", "direct");
     return OptionStatus::ILLEGAL_VALUE;
   }
   return OptionStatus::OK;
@@ -578,7 +582,7 @@ OptionStatus setFindFeasibilityDualizeValue(HighsOptions& options,
 }
 
 OptionStatus setFindFeasibilityUpdateTypeValue(HighsOptions& options,
-                                          const std::string& value) {
+                                               const std::string& value) {
   if (value == "standard")
     options.feasibility_update_type = FeasibilityUpdateType::kStandard;
   else if (value == "penalty")
@@ -587,9 +591,33 @@ OptionStatus setFindFeasibilityUpdateTypeValue(HighsOptions& options,
     options.feasibility_update_type = FeasibilityUpdateType::kAdmm;
   else {
     HighsLogMessage(HighsMessageType::ERROR,
-                    "feasibility dualize value \"%s\" is not permitted: legal "
-                    "values are \"%s\" and \"%s\"\n",
-                    value.c_str(), "on", "off");
+                    "feasibility type value \"%s\" is not permitted: legal "
+                    "values are \"%s\", \"%s\",  and \"%s\"\n",
+                    value.c_str(), "standard", "penalty", "admm");
+    return OptionStatus::ILLEGAL_VALUE;
+  }
+  return OptionStatus::OK;
+}
+
+OptionStatus setFindFeasibilityInitialWeight(HighsOptions& options,
+                                             const std::string& value) {
+  double mu = 0;
+  std::istringstream num(value);
+
+  num >> mu;
+
+  if (!num.fail() &&
+      num.eof())  // This second test is important! This makes sure that the
+                  // entire string was converted to a number
+  {
+    // success
+    options.feasibility_initial_weight = mu;
+  } else {
+    // failure
+    HighsLogMessage(HighsMessageType::ERROR,
+                    "feasibility initial weight value \"%s\" is not permitted: legal "
+                    "values are doubles.\n",
+                    value.c_str());
     return OptionStatus::ILLEGAL_VALUE;
   }
   return OptionStatus::OK;

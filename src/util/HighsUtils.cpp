@@ -13,12 +13,13 @@
  */
 
 #include "util/HighsUtils.h"
-#include "HConfig.h"
-#include "lp_data/HConst.h"
 
 #include <stdio.h>
 #include <cmath>
 #include <vector>
+
+#include "HConfig.h"
+#include "lp_data/HConst.h"
 
 double getNorm2(const std::vector<double> values) {
   double sum = 0;

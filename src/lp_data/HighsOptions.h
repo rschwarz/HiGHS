@@ -46,6 +46,7 @@ const string find_feasibility_string = "find_feasibility";
 const string find_feasibility_strategy_string = "feasibility_strategy";
 const string find_feasibility_dualize_string = "feasibility_dualize";
 const string find_feasibility_update_type_string = "feasibility_update_type";
+const string find_feasibility_initial_weight = "feasibility_initial_weight";
 
 // Strings for file options
 const string infinite_cost_string = "infinite_cost";
@@ -162,6 +163,7 @@ struct HighsOptions {
   bool feasibility_strategy_dualize = false;
   FeasibilityUpdateType feasibility_update_type =
       FeasibilityUpdateType::kStandard;
+  double feasibility_initial_weight = 0.001;
 
   bool mip = false;
 };

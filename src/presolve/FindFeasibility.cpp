@@ -9,6 +9,7 @@
 #include "lp_data/HConst.h"
 #include "lp_data/HighsLpUtils.h"
 #include "presolve/ExactSubproblem.h"
+#include "util/HighsUtils.h"
 
 constexpr double kExitTolerance = 0.00000001;
 
@@ -43,6 +44,47 @@ std::vector<double> getAtLambda(const HighsLp& lp,
   return atl;
 }
 
+// if you want to test accuracy of residual use something like
+// assert(getResidual(..) == quadratic.residual_);
+
+double getQuadraticObjective(const std::vector<double> cost,
+                             const std::vector<double>& x,
+                             std::vector<double>& r, const double mu,
+                             const std::vector<double> lambda) {
+  assert(cost.size() == x.size());
+  // c'x
+  double quadratic = 0;
+  for (int col = 0; col < x.size(); col++) quadratic += cost[col] * x[col];
+
+  // lambda'x
+  for (int row = 0; row < lambda.size(); row++) {
+    quadratic += lambda[row] * r[row];
+  }
+
+  // 1/2mu r'r
+  for (int row = 0; row < lambda.size(); row++) {
+    quadratic += (r[row] * r[row]) / mu;
+  }
+
+  return quadratic;
+}
+
+void printMinorIterationDetails(const double iteration, const double col,
+                                const double old_value, const double update,
+                                const double ctx, const std::vector<double>& r,
+                                const double quadratic_objective) {
+  double rnorm = getNorm2(r);
+  std::cout << "iter " << iteration;
+  std::cout << ", col " << col;
+  std::cout << ", update " << update;
+  std::cout << ", old_value " << old_value;
+  std::cout << ", new_value " << old_value + update;
+  std::cout << ", ctx " << ctx;
+  std::cout << ", r " << rnorm;
+  std::cout << ", quadratic_objective " << quadratic_objective;
+  std::cout << std::endl;
+}
+
 class Quadratic {
  public:
   Quadratic(const HighsLp& lp, std::vector<double>& primal_values,
@@ -71,9 +113,9 @@ class Quadratic {
   void minimize_by_component(const double mu, const std::vector<double>& lambda,
                              const ResidualFunctionType type);
 
-  void minimize_component_quadratic_linearisation(
+  double minimize_component_quadratic_linearisation(
       const int col, const double mu, const std::vector<double>& lambda);
-  void minimize_component_quadratic_piecewise(
+  double minimize_component_quadratic_piecewise(
       const int col, const double mu, const std::vector<double>& lambda);
   void minimize_exact_penalty(const double mu);
   void minimize_exact_with_lambda(const double mu,
@@ -122,8 +164,6 @@ void Quadratic::updateRowValue() {
   }
 }
 
-
-
 void Quadratic::updateResidual(ResidualFunctionType quadratic_type) {
   residual_.clear();
   residual_.assign(lp_.numRow_, 0);
@@ -161,8 +201,6 @@ void Quadratic::updateObjective() {
     objective_ += lp_.colCost_[col] * col_value_[col];
 }
 
-double chooseStartingMu(const HighsLp& lp) { return 0.001; }
-
 HighsStatus initialize(const HighsLp& lp, HighsSolution& solution, double& mu,
                        std::vector<double>& lambda) {
   if (!isSolutionConsistent(lp, solution)) {
@@ -188,8 +226,6 @@ HighsStatus initialize(const HighsLp& lp, HighsSolution& solution, double& mu,
       return HighsStatus::Error;
     }
   }
-
-  mu = chooseStartingMu(lp);
 
   lambda.resize(lp.numRow_);
   lambda.assign(lp.numRow_, 0);
@@ -228,7 +264,7 @@ void Quadratic::minimize_exact_penalty(const double mu) {
   update();
 }
 
-void Quadratic::minimize_component_quadratic_linearisation(
+double Quadratic::minimize_component_quadratic_linearisation(
     const int col, const double mu, const std::vector<double>& lambda) {
   // todo: see again when you refactor caclQV out of there
   // is this why ff became so slow? no, but the same call was done for each
@@ -288,6 +324,8 @@ void Quadratic::minimize_component_quadratic_linearisation(
     residual_[row] -= lp_.Avalue_[k] * delta_x;
     row_value_[row] += lp_.Avalue_[k] * delta_x;
   }
+
+  return delta_x;
 }
 
 // Returns c'x + lambda'x + 1/2mu r'r
@@ -528,7 +566,7 @@ double Quadratic::findBreakpoints(const int col, const double mu,
   return 0;
 }
 
-void Quadratic::minimize_component_quadratic_piecewise(
+double Quadratic::minimize_component_quadratic_piecewise(
     const int col, const double mu, const std::vector<double>& lambda) {
   // Calculate step theta using true residual. The function minimized for each
   // component has breakpoints. They are found and sorted and the minimum
@@ -556,6 +594,7 @@ void Quadratic::minimize_component_quadratic_piecewise(
     // todo: this is slow
     update(ResidualFunctionType::kPiecewise);
   }
+  return delta_x;
 }
 
 void Quadratic::minimize_by_component(
@@ -563,6 +602,7 @@ void Quadratic::minimize_by_component(
     const ResidualFunctionType quadratic_type) {
   HighsPrintMessageLevel ML_DESC = ML_DETAILED;
   int iterations = 100;
+  bool minor_iteration_details = false;
 
   HighsPrintMessage(ML_DESC, "Values at start: %3.2g, %3.4g, \n", objective_,
                     residual_norm_2_);
@@ -575,10 +615,22 @@ void Quadratic::minimize_by_component(
 
       double delta_x = 0;
       if (quadratic_type == ResidualFunctionType::kLinearised)
-        minimize_component_quadratic_linearisation(col, mu, lambda);
+        delta_x = minimize_component_quadratic_linearisation(col, mu, lambda);
       else if (quadratic_type == ResidualFunctionType::kPiecewise)
-        minimize_component_quadratic_piecewise(col, mu, lambda);
+        delta_x = minimize_component_quadratic_piecewise(col, mu, lambda);
+
+      if (minor_iteration_details) {
+        double quadratic_objective = getQuadraticObjective(
+            lp_.colCost_, col_value_, residual_, mu, lambda);
+
+        printMinorIterationDetails(iteration, col, col_value_[col] - delta_x,
+                                   delta_x, objective_, residual_,
+                                   quadratic_objective);
+      }
     }
+
+    // todo: update(type)? when you get back to breakpoints.
+    update();
 
     HighsPrintMessage(ML_DESC,
                       "Values at approximate iteration %d: %3.2g, %3.4g, \n",
@@ -590,7 +642,7 @@ void Quadratic::minimize_by_component(
 }
 
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
-                           const MinimizationType type) {
+                           const MinimizationType type, const double initial_weight) {
   if (!isEqualityProblem(lp)) return HighsStatus::NotImplemented;
   if (type == MinimizationType::kExactAdmm) return HighsStatus::NotImplemented;
   if (type == MinimizationType::kComponentWiseAdmm)
@@ -616,7 +668,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   }
 
   // Initialize x_0 ≥ 0, μ_1, λ_1 = 0.
-  double mu;
+  double mu = initial_weight;
   std::vector<double> lambda;
 
   HighsStatus status = initialize(lp, solution, mu, lambda);
