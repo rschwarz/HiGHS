@@ -63,7 +63,7 @@ double getQuadraticObjective(const std::vector<double> cost,
 
   // 1/2mu r'r
   for (int row = 0; row < lambda.size(); row++) {
-    quadratic += (r[row] * r[row]) / mu;
+    quadratic += (r[row] * r[row]) / (2*mu);
   }
 
   return quadratic;
