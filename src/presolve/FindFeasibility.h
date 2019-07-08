@@ -3,6 +3,7 @@
 
 #include "lp_data/HighsLp.h"
 #include "lp_data/HighsStatus.h"
+#include "util/HighsTimer.h"
 
 double getQuadraticObjective(const std::vector<double> cost,
                              const std::vector<double>& x,
@@ -20,6 +21,7 @@ enum class MinimizationType {
 };
 
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
-                           const MinimizationType type, const double initial_weight);
+                           const MinimizationType type, const double initial_weight, 
+                           HighsTimer& timer);
 
 #endif

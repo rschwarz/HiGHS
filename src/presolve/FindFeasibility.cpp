@@ -9,6 +9,7 @@
 #include "lp_data/HConst.h"
 #include "lp_data/HighsLpUtils.h"
 #include "presolve/ExactSubproblem.h"
+#include "util/HighsTimer.h"
 #include "util/HighsUtils.h"
 
 constexpr double kExitTolerance = 0.00000001;
@@ -63,7 +64,7 @@ double getQuadraticObjective(const std::vector<double> cost,
 
   // 1/2mu r'r
   for (int row = 0; row < lambda.size(); row++) {
-    quadratic += (r[row] * r[row]) / (2*mu);
+    quadratic += (r[row] * r[row]) / (2 * mu);
   }
 
   return quadratic;
@@ -339,8 +340,8 @@ double Quadratic::minimize_component_quadratic_linearisation(
 
 //   // lambda'x
 //   for (int row = 0; row < lp_.numRow_; row++) {
-//     if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >= 0);
-//     quadratic += lambda[row] * residual_[row];
+//     if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >=
+//     0); quadratic += lambda[row] * residual_[row];
 //   }
 
 //   // 1/2mu r'r
@@ -642,11 +643,14 @@ void Quadratic::minimize_by_component(
 }
 
 HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
-                           const MinimizationType type, const double initial_weight) {
+                           const MinimizationType type,
+                           const double initial_weight, HighsTimer& timer) {
   if (!isEqualityProblem(lp)) return HighsStatus::NotImplemented;
   if (type == MinimizationType::kExactAdmm) return HighsStatus::NotImplemented;
   if (type == MinimizationType::kComponentWiseAdmm)
     return HighsStatus::NotImplemented;
+
+  double start_time = timer.getWallTime();
 
   solution.col_value.clear();
   solution.col_value.resize(lp.numCol_);
@@ -769,12 +773,24 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
 
   // Using ss again instead of ss_str messes up HighsIO.
   assert(calculateObjective(lp, solution) == quadratic.getObjective());
+  std::vector<double> r;
+  status = calculateResidual(lp, solution, r);
+  bool is_ok = (status == HighsStatus::OK);
+  assert(is_ok);
+  assert(std::fabs(residual_norm_2 - getNorm2(r)) < 1e08);
+
+  double quadratic_objective =
+      getQuadraticObjective(lp.colCost_, solution.col_value, r, mu, lambda);
+
+  double end_time = timer.getWallTime();
+  double time = end_time - start_time;
+
   std::stringstream ss_str;
-  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", c'x, "
-         << calculateObjective(lp, solution) << " , quadratic_objective, "
-         << std::setw(3) << std::fixed << std::setprecision(2) << "todo calcQV"
-         << ",residual, " << std::setw(5) << std::scientific << residual_norm_2
-         << "," << std::endl;
+  ss_str << "Model, " << lp.model_name_ << ", iter, " << iteration << ", mu, "
+         << mu << ", c'x, " << std::scientific << quadratic.getObjective()
+         << ", quadratic_objective, " << std::setw(3) << quadratic_objective
+         << ", residual, " << std::setw(5) << residual_norm_2 << ", time, "
+         << time << std::endl;
   HighsPrintMessage(ML_ALWAYS, ss_str.str().c_str());
 
   return HighsStatus::OK;
