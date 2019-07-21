@@ -45,25 +45,22 @@ std::vector<double> getAtLambda(const HighsLp& lp,
   return atl;
 }
 
-// if you want to test accuracy of residual use something like
-// assert(getResidual(..) == quadratic.residual_);
-
 double getQuadraticObjective(const std::vector<double> cost,
                              const std::vector<double>& x,
-                             std::vector<double>& r, const double mu,
+                             const std::vector<double>& r, const double mu,
                              const std::vector<double> lambda) {
   assert(cost.size() == x.size());
   // c'x
   double quadratic = 0;
-  for (int col = 0; col < x.size(); col++) quadratic += cost[col] * x[col];
+  for (int col = 0; col < (int) x.size(); col++) quadratic += cost[col] * x[col];
 
   // lambda'x
-  for (int row = 0; row < lambda.size(); row++) {
+  for (int row = 0; row < (int)  lambda.size(); row++) {
     quadratic += lambda[row] * r[row];
   }
 
   // 1/2mu r'r
-  for (int row = 0; row < lambda.size(); row++) {
+  for (int row = 0; row < (int) lambda.size(); row++) {
     quadratic += (r[row] * r[row]) / (2 * mu);
   }
 
@@ -140,9 +137,6 @@ class Quadratic {
   void update(
       ResidualFunctionType quadratic_type = ResidualFunctionType::kLinearised);
 
-  // double calculateQuadraticValue(const double mu,
-  //                                const std::vector<double> lambda,
-  //                                ResidualFunctionType type);
   double findBreakpoints(const int col, const double mu,
                          const std::vector<double> lambda);
 };
@@ -202,7 +196,7 @@ void Quadratic::updateObjective() {
     objective_ += lp_.colCost_[col] * col_value_[col];
 }
 
-HighsStatus initialize(const HighsLp& lp, HighsSolution& solution, double& mu,
+HighsStatus initialize(const HighsLp& lp, HighsSolution& solution,
                        std::vector<double>& lambda) {
   if (!isSolutionConsistent(lp, solution)) {
     // clear and resize solution.
@@ -245,7 +239,7 @@ void Quadratic::minimize_exact_with_lambda(const double mu,
 
   std::vector<double> atb = getAtb(lp);
   std::vector<double> atlambda = getAtLambda(lp, lambda);
-  for (int col = 0; col < lp.colCost_.size(); col++)
+  for (int col = 0; col < (int) lp.colCost_.size(); col++)
     lp.colCost_[col] -= atlambda[col];
 
   solve_exact(lp, mu_penalty, col_value_);
@@ -267,12 +261,6 @@ void Quadratic::minimize_exact_penalty(const double mu) {
 
 double Quadratic::minimize_component_quadratic_linearisation(
     const int col, const double mu, const std::vector<double>& lambda) {
-  // todo: see again when you refactor caclQV out of there
-  // is this why ff became so slow? no, but the same call was done for each
-  // component update below and that was the reason.
-  // double current =
-  //     calculateQuadraticValue(mu, lambda, ResidualFunctionType::kLinearised);
-
   // Minimize quadratic for column col.
 
   // Formulas for a and b when minimizing for x_j
@@ -329,29 +317,6 @@ double Quadratic::minimize_component_quadratic_linearisation(
   return delta_x;
 }
 
-// // Returns c'x + lambda'x + 1/2mu r'r
-// double Quadratic::calculateQuadraticValue(const double mu,
-//                                           const std::vector<double> lambda,
-//                                           ResidualFunctionType type) {
-//   update(type);
-
-//   // c'x
-//   double quadratic = getObjective();
-
-//   // lambda'x
-//   for (int row = 0; row < lp_.numRow_; row++) {
-//     if (type == ResidualFunctionType::kPiecewise) assert(residual_[row] >=
-//     0); quadratic += lambda[row] * residual_[row];
-//   }
-
-//   // 1/2mu r'r
-//   for (int row = 0; row < lp_.numRow_; row++) {
-//     quadratic += (residual_[row] * residual_[row]) / mu;
-//   }
-
-//   return quadratic;
-// }
-
 double Quadratic::findBreakpoints(const int col, const double mu,
                                   const std::vector<double> lambda) {
   // Find breakpoints of residual function and add them to vector.
@@ -378,6 +343,8 @@ double Quadratic::findBreakpoints(const int col, const double mu,
       std::unique(breakpoints.begin(), breakpoints.end());
 
   double col_save = col_value_[col];
+
+  // todo: change with matlab code once test on tinyLP has been implemented.
 
   // // todo change iterators to int
   // std::vector<double>::iterator min_x_update_it_i = breakpoints.begin();
@@ -591,7 +558,7 @@ double Quadratic::minimize_component_quadratic_piecewise(
   // Update objective, row_value, residual after each component update.
   objective_ += lp_.colCost_[col] * delta_x;
   for (int k = lp_.Astart_[col]; k < lp_.Astart_[col + 1]; k++) {
-    int row = lp_.Aindex_[k];
+    // int row = lp_.Aindex_[k];
     // todo: this is slow
     update(ResidualFunctionType::kPiecewise);
   }
@@ -678,7 +645,7 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
   double mu = initial_weight;
   std::vector<double> lambda;
 
-  HighsStatus status = initialize(lp, solution, mu, lambda);
+  HighsStatus status = initialize(lp, solution, lambda);
   if (status != HighsStatus::OK) {
     // todo: handle errors.
   }
@@ -723,6 +690,11 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
         quadratic.minimize_by_component(mu, lambda,
                                         ResidualFunctionType::kPiecewise);
         break;
+      case MinimizationType::kComponentWisePenalty:
+      case MinimizationType::kComponentWiseAdmm:
+      case MinimizationType::kExactAdmm:
+        std::cout << "Not implemented.";
+        return HighsStatus::NotImplemented;
       case MinimizationType::kExact:
         quadratic.minimize_exact_with_lambda(mu, lambda);
         break;
@@ -734,19 +706,19 @@ HighsStatus runFeasibility(const HighsLp& lp, HighsSolution& solution,
     // Report outcome.
     residual_norm_2 = quadratic.getResidualNorm2();
     ss.str(std::string());
-    bool details = false;
+    bool details = true;
     if (!details) {
       ss << "Iteration " << std::setw(3) << iteration << ": objective "
          << std::setw(3) << std::fixed << std::setprecision(2)
          << quadratic.getObjective() << " residual " << std::setw(5)
          << std::scientific << residual_norm_2 << std::endl;
     } else {
-      // todo: after merge with ff-breakpoints
-      // or before and replace code there
-      // double quad_value = calculateQuadraticValue(A,L,U,x,residual_type);
-      ss << "Iter " << std::setw(3) << iteration << ", c'x "
+      double quadratic_objective = getQuadraticObjective(
+          lp.colCost_, solution.col_value, quadratic.getResidual(), mu, lambda);
+      ss << "Iter " << std::setw(3) << iteration << ", mu " << mu << ", c'x "
          << std::setprecision(5) << quadratic.getObjective() << ", res "
-         << residual_norm_2 << std::endl;
+         << residual_norm_2 << ", quad_obj " << quadratic_objective
+         << std::endl;
     }
     HighsPrintMessage(ML_ALWAYS, ss.str().c_str());
 
