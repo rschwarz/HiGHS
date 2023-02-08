@@ -615,6 +615,60 @@ void full_api_lp() {
     printf("LP problem has old objective sense = %"HIGHSINT_FORMAT"\n", sense);
   assert( sense == kHighsObjSenseMinimize );
 
+  // fetch column data (just first column)
+  {
+      HighsInt num_col = 0;
+      double* costs = (double*)malloc(sizeof(double) * 1);
+      double* lower = (double*)malloc(sizeof(double) * 1);
+      double* upper = (double*)malloc(sizeof(double) * 1);
+      HighsInt num_nz = 0;
+
+      return_status = Highs_getColsByRange(
+          highs, 0, 0,
+          &num_col, costs, lower, upper, &num_nz,
+          NULL, NULL, NULL);
+      assert( return_status == kHighsStatusOk );
+
+      assertIntValuesEqual("getCols num_col", num_col, 1);
+      assertDoubleValuesEqual("getCols costs", costs[0], 2.0);
+      assertDoubleValuesEqual("getCols lower", lower[0], 0.0);
+      assertDoubleValuesEqual("getCols upper", upper[0], 3.0);
+      assertIntValuesEqual("getCols num_nz", num_nz, 2);
+
+      // could also check coefficients by calling again...
+
+      free(upper);
+      free(lower);
+      free(costs);
+  }
+
+  // fetch row data (just 2nd row: 10 <=  x_0 + 2x_1 <= 14)
+  {
+      HighsInt num_row = 0;
+      double* lower = (double*)malloc(sizeof(double) * 1);
+      double* upper = (double*)malloc(sizeof(double) * 1);
+      HighsInt num_nz = 0;
+
+      assertIntValuesEqual("getNumRows", Highs_getNumRows(highs), 3);
+
+      return_status = Highs_getRowsByRange(
+          highs, 1, 1,
+          &num_row, lower, upper, &num_nz,
+          NULL, NULL, NULL);
+      printf("### %d ###\n", return_status);
+      assert( return_status == kHighsStatusOk );
+
+      assertIntValuesEqual("getRows num_row", num_row, 1);
+      assertDoubleValuesEqual("getRows lower", lower[0], 10.0);
+      assertDoubleValuesEqual("getRows upper", upper[0], 14.0);
+      assertIntValuesEqual("getRows num_nz", num_nz, 2);  // <-- this is always 0?
+
+      // could also check coefficients by calling again...
+
+      free(upper);
+      free(lower);
+  }
+
   return_status = Highs_setBoolOptionValue(highs, "output_flag", 0);
   assert( return_status == kHighsStatusOk );
   if (dev_run)
