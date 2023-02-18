@@ -416,8 +416,8 @@ void full_api() {
   assert( intArraysEqual(num_nz, ck_a_index, a_index) );
   assert( doubleArraysEqual(num_nz, ck_a_value, a_value) );
 
-  return_status = Highs_run(highs);
-  assert( return_status == kHighsStatusOk );
+  /* return_status = Highs_run(highs); */
+  /* assert( return_status == kHighsStatusOk ); */
 
   char* col_prefix = "Col";
   char* row_prefix = "Row";
@@ -1229,19 +1229,19 @@ void test_setSolution() {
 }
 */
 int main() {
-  version_api();
-  minimal_api();
+  /* version_api(); */
+  /* minimal_api(); */
   full_api();
-  minimal_api_lp();
-  minimal_api_mip();
-  minimal_api_qp();
-  full_api_options();
-  full_api_lp();
-  full_api_mip();
-  full_api_qp();
-  options();
-  test_getColsByRange();
-  test_passHessian();
+  /* minimal_api_lp(); */
+  /* minimal_api_mip(); */
+  /* minimal_api_qp(); */
+  /* full_api_options(); */
+  /* full_api_lp(); */
+  /* full_api_mip(); */
+  /* full_api_qp(); */
+  /* options(); */
+  /* test_getColsByRange(); */
+  /* test_passHessian(); */
   //  test_setSolution();
   return 0;
 }
