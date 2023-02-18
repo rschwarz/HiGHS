@@ -445,11 +445,8 @@ void full_api() {
     // Executing this loop leads to CI failures - capi_unit_tests
     // times out???
     for (HighsInt iCol = 0; iCol < num_col; iCol++) {
-      const char suffix = iCol + '0';
-      const char* suffix_p = &suffix;
-      char name[4];
-      strncpy(name, col_prefix, sizeof(name));
-      strncat(name, suffix_p, sizeof(name)-strlen(name));
+      char name[5];  // 3 chars prefix, 1 char iCol, 1 char 0-terminator
+      sprintf(name, "%s%d", col_prefix, iCol);
       const char* name_p = name;
       return_status = Highs_passColName(highs, iCol, name_p);
       assert( return_status == kHighsStatusOk );
@@ -467,11 +464,8 @@ void full_api() {
 
     // Define all row names to be different
     for (HighsInt iRow = 0; iRow < num_row; iRow++) {
-      const char suffix = iRow + '0';
-      const char* suffix_p = &suffix;
-      char name[4];
-      strncpy(name, row_prefix, sizeof(name));
-      strncat(name, suffix_p, sizeof(name)-strlen(name));
+      char name[5];
+      sprintf(name, "%s%d", row_prefix, iRow);
       const char* name_p = name;
       return_status = Highs_passRowName(highs, iRow, name_p);
       assert( return_status == kHighsStatusOk );
