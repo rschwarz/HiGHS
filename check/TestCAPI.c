@@ -9,7 +9,7 @@
 #include <string.h>
 
 const HighsInt dev_run = 1;
-const HighsInt full_api_names = 0;
+const HighsInt full_api_names = 1;
 const HighsInt full_api_mip_integrality = 1;
 const double double_equal_tolerance = 1e-5;
 
